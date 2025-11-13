@@ -733,14 +733,17 @@ public class FlatFileDataStore extends DataStore
             {
                 root = root.parent;
             }
-
+            
+            // Remove the claim from its parent's children list
+            claim.parent.children.remove(claim);
+            
+            // Save the parent to update the YAML
             this.writeClaimToStorage(root);
-            return;
         }
-
+        
+        // Always try to delete the claim file if it exists
+        // (in case it's a top-level claim or the file wasn't properly cleaned up)
         String claimID = String.valueOf(claim.id);
-
-        //remove from disk
         File claimFile = new File(claimDataFolderPath + File.separator + claimID + ".yml");
         if (claimFile.exists() && !claimFile.delete())
         {

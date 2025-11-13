@@ -513,23 +513,37 @@ public class Claim
          return checkPermission(uuid, permission, event, null);
      }
  
-     /**
-      * Check whether a UUID has a certain level of trust with a custom denial message.
-      *
-      * @param uuid the UUID being checked for permissions
-      * @param permission the ClaimPermission level required
-      * @param event the Event triggering the permission check
-      * @param denialOverride a custom denial message supplier, or null to use default
-      * @return the denial message or null if permission is granted
-      */
+    /**
+    * Check whether a UUID has a certain level of trust with a custom denial message.
+    *
+    * @param uuid the UUID being checked for permissions
+    * @param permission the ClaimPermission level required
+    * @param event the Event triggering the permission check
+    * @param denialOverride a custom denial message supplier, or null to use default
+    * @return the denial message or null if permission is granted
+    */
      public @Nullable Supplier<String> checkPermission(
-         @NotNull UUID uuid,
-         @NotNull ClaimPermission permission,
-         @Nullable Event event,
-         @Nullable Supplier<String> denialOverride)
-     {
-         return callPermissionCheck(new ClaimPermissionCheckEvent(uuid, this, permission, event), denialOverride);
-     }
+        @NotNull UUID uuid,
+        @NotNull ClaimPermission permission,
+        @Nullable Event event,
+        @Nullable Supplier<String> denialOverride)
+    {
+        // For wilderness claims, only block if explicitly denied
+        if (this.isWilderness()) {
+            return isPermissionDenied(uuid.toString(), permission) ? 
+                (denialOverride != null ? denialOverride : () -> "You don't have permission to do that in the wilderness.") : 
+                null;
+        }
+        return callPermissionCheck(new ClaimPermissionCheckEvent(uuid, this, permission, event), denialOverride);
+    }
+
+    /**
+     * Checks if this claim represents a wilderness (unclaimed) area.
+     * @return true if this is a wilderness claim, false otherwise
+     */
+     public boolean isWilderness() {
+        return this.id == null;
+    }
  
      /**
       * Helper method for calling a ClaimPermissionCheckEvent.

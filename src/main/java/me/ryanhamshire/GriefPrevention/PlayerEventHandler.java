@@ -1096,29 +1096,43 @@ import me.ryanhamshire.GriefPrevention.util.SchedulerUtil;
      }
  
      //when a player teleports
-     @EventHandler(priority = EventPriority.LOWEST)
+     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
      public void onPlayerTeleport(PlayerTeleportEvent event)
      {
-         //FEATURE: prevent players from using ender pearls or chorus fruit to gain access to secured claims
-         if(!instance.config_claims_enderPearlsRequireAccessTrust) return;
- 
-         TeleportCause cause = event.getCause();
-         if(cause != TeleportCause.CHORUS_FRUIT && cause != TeleportCause.ENDER_PEARL) return;
- 
          Player player = event.getPlayer();
          PlayerData playerData = this.dataStore.getPlayerData(player.getUniqueId());
- 
+         
+         // Get the claim at the destination
          Claim toClaim = this.dataStore.getClaimAt(event.getTo(), false, playerData.lastClaim);
-         if(toClaim == null) return;
- 
+         
+         // Get the claim at the original location
+         Claim fromClaim = playerData.lastClaim;
+         
+         // Update the lastClaim to the new location
          playerData.lastClaim = toClaim;
-         Supplier<String> noAccessReason = toClaim.checkPermission(player, ClaimPermission.Access, event);
-         if(noAccessReason == null) return;
- 
-         GriefPrevention.sendMessage(player, TextMode.Err, noAccessReason.get());
-         event.setCancelled(true);
-         if (cause == TeleportCause.ENDER_PEARL)
-             player.getInventory().addItem(new ItemStack(Material.ENDER_PEARL));
+         
+         // If we're moving from one claim to another, or from a claim to wilderness,
+        // we need to update the player's permissions
+        if (fromClaim != toClaim) {
+            player.updateCommands();
+        }
+
+         // Special handling for ender pearls and chorus fruit to prevent gaining access to secured claims
+         if (instance.config_claims_enderPearlsRequireAccessTrust) {
+             TeleportCause cause = event.getCause();
+             if (cause == TeleportCause.CHORUS_FRUIT || cause == TeleportCause.ENDER_PEARL) {
+                 if (toClaim != null) {
+                     Supplier<String> noAccessReason = toClaim.checkPermission(player, ClaimPermission.Access, event);
+                     if (noAccessReason != null) {
+                         GriefPrevention.sendMessage(player, TextMode.Err, noAccessReason.get());
+                         event.setCancelled(true);
+                         if (cause == TeleportCause.ENDER_PEARL) {
+                             player.getInventory().addItem(new ItemStack(Material.ENDER_PEARL));
+                         }
+                     }
+                 }
+             }
+         }
      }
  
      //when a player triggers a raid (in a claim)
@@ -1178,6 +1192,32 @@ import me.ryanhamshire.GriefPrevention.util.SchedulerUtil;
                  GriefPrevention.sendRateLimitedErrorMessage(player, noBuildReason.get());
                  event.setCancelled(true);
              }
+         }
+     }
+
+     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+     public void onPlayerMove(org.bukkit.event.player.PlayerMoveEvent event) {
+        // Only check if the player has moved a full block
+         if (event.getFrom().getBlockX() == event.getTo().getBlockX() && 
+            event.getFrom().getBlockZ() == event.getTo().getBlockZ() &&
+            event.getFrom().getBlockY() == event.getTo().getBlockY()) {
+            return;
+         }
+
+         Player player = event.getPlayer();
+         PlayerData playerData = this.dataStore.getPlayerData(player.getUniqueId());
+        
+        // Get the claim at the new location
+         Claim toClaim = this.dataStore.getClaimAt(event.getTo(), false, playerData.lastClaim);
+         Claim fromClaim = playerData.lastClaim;
+        
+        // If we're moving between claims or to/from wilderness
+         if (fromClaim != toClaim) {
+             // Update the last claim reference
+             playerData.lastClaim = toClaim;
+            
+             // Update commands to reflect the new location
+             player.updateCommands();
          }
      }
 
@@ -1985,10 +2025,12 @@ import me.ryanhamshire.GriefPrevention.util.SchedulerUtil;
                      ClaimInspectionEvent inspectionEvent = new ClaimInspectionEvent(player, clickedBlock, null);
                      Bukkit.getPluginManager().callEvent(inspectionEvent);
                      if (inspectionEvent.isCancelled()) return;
- 
+
                      GriefPrevention.sendMessage(player, TextMode.Info, Messages.BlockNotClaimed);
- 
+
+                     // Clear any existing visualization
                      playerData.setVisibleBoundaries(null);
+                     return;  // Important: Add this return to prevent further processing
                  }
  
                  //claim case

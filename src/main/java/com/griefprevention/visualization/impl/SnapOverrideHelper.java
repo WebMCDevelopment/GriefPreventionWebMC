@@ -119,6 +119,11 @@ final class SnapOverrideHelper
             return SnapOverride.SELF;
         }
 
+        if (material == Material.DIRT_PATH)
+        {
+            return SnapOverride.SELF;
+        }
+
         if (material == Material.SCAFFOLDING)
         {
             return SnapOverride.SELF;
