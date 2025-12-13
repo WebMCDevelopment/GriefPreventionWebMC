@@ -63,6 +63,16 @@ final class SnapOverrideHelper
             return SnapOverride.SELF;
         }
 
+        if (material == Material.DIRT_PATH)
+        {
+            return SnapOverride.SELF;
+        }
+        
+        if (material == Material.SNOW)
+        {
+            return SnapOverride.SELF;
+        }
+
         if (data instanceof Bell)
         {
             return SnapOverride.SELF;

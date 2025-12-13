@@ -150,7 +150,7 @@ public class Visualization
     @Deprecated(forRemoval = true, since = "16.18")
     //adds a general claim cuboid (represented by min and max) visualization to the current visualization
     public void addClaimElements(Location min, Location max, Location locality, int height, BlockData cornerBlockData, BlockData accentBlockData, int STEP) {
-        this.boundaries.add(new Boundary(new BoundingBox(min, max), me.ryanhamshire.GriefPrevention.VisualizationType.ofBlockData(accentBlockData)));
+        this.boundaries.add(new Boundary(new BoundingBox(min, max), com.griefprevention.visualization.VisualizationType.CLAIM));
     }
 
     /**

@@ -46,8 +46,10 @@ public class DatabaseDataStore extends DataStore
 
     private static final String SQL_UPDATE_NAME =
             "UPDATE griefprevention_playerdata SET name = ? WHERE name = ?";
+    private static final String SQL_UPDATE_CLAIM =
+            "UPDATE griefprevention_claimdata SET owner = ?, lessercorner = ?, greatercorner = ?, builders = ?, containers = ?, accessors = ?, managers = ?, inheritnothing = ?, parentid = ?, expiration = ? WHERE id = ?";
     private static final String SQL_INSERT_CLAIM =
-            "INSERT INTO griefprevention_claimdata (id, owner, lessercorner, greatercorner, builders, containers, accessors, managers, inheritnothing, parentid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            "INSERT INTO griefprevention_claimdata (id, owner, lessercorner, greatercorner, builders, containers, accessors, managers, inheritnothing, parentid, expiration) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String SQL_DELETE_CLAIM =
             "DELETE FROM griefprevention_claimdata WHERE id = ?";
     private static final String SQL_SELECT_PLAYER_DATA =
@@ -68,6 +70,10 @@ public class DatabaseDataStore extends DataStore
             "DELETE FROM griefprevention_schemaversion";
     private static final String SQL_SELECT_SCHEMA_VERSION =
             "SELECT * FROM griefprevention_schemaversion";
+    private static final String SQL_LOAD_CLAIM =
+            "SELECT * FROM griefprevention_claimdata WHERE id = ?";
+    private static final String SQL_UPDATE_SCHEMA_ADD_EXPIRATION =
+            "ALTER TABLE griefprevention_claimdata ADD COLUMN IF NOT EXISTS expiration BIGINT DEFAULT 0";
 
     private Connection databaseConnection = null;
 
@@ -101,7 +107,7 @@ public class DatabaseDataStore extends DataStore
         {
             //ensure the data tables exist
             statement.execute("CREATE TABLE IF NOT EXISTS griefprevention_nextclaimid (nextid INTEGER)");
-            statement.execute("CREATE TABLE IF NOT EXISTS griefprevention_claimdata (id INTEGER, owner VARCHAR(50), lessercorner VARCHAR(100), greatercorner VARCHAR(100), builders TEXT, containers TEXT, accessors TEXT, managers TEXT, inheritnothing BOOLEAN, parentid INTEGER)");
+            statement.execute("CREATE TABLE IF NOT EXISTS griefprevention_claimdata (id INTEGER, owner VARCHAR(50), lessercorner VARCHAR(100), greatercorner VARCHAR(100), builders TEXT, containers TEXT, accessors TEXT, managers TEXT, inheritnothing BOOLEAN, parentid INTEGER, expiration BIGINT)");
             statement.execute("CREATE TABLE IF NOT EXISTS griefprevention_playerdata (name VARCHAR(50), lastlogin DATETIME, accruedblocks INTEGER, bonusblocks INTEGER)");
             statement.execute("CREATE TABLE IF NOT EXISTS griefprevention_schemaversion (version INTEGER)");
 
@@ -258,6 +264,12 @@ public class DatabaseDataStore extends DataStore
             statement.execute("ALTER TABLE griefprevention_claimdata ADD inheritNothing BOOLEAN DEFAULT 0 AFTER managers");
         }
 
+        if (this.getSchemaVersion() <= 3)
+        {
+            statement = this.databaseConnection.createStatement();
+            statement.execute(SQL_UPDATE_SCHEMA_ADD_EXPIRATION);
+        }
+
         //load claims data into memory
 
         results = statement.executeQuery("SELECT * FROM griefprevention_claimdata");
@@ -276,7 +288,11 @@ public class DatabaseDataStore extends DataStore
 
                 long parentId = results.getLong("parentid");
                 claimID = results.getLong("id");
-                boolean inheritNothing = results.getBoolean("inheritNothing");
+                boolean inheritNothing = results.getBoolean("inheritnothing");
+
+                //expiration date
+                long expirationDate = results.getLong("expiration");
+
                 Location lesserBoundaryCorner = null;
                 Location greaterBoundaryCorner = null;
                 String lesserCornerString = "(location not available)";
@@ -347,6 +363,7 @@ public class DatabaseDataStore extends DataStore
                 List<String> managerNames = Arrays.asList(managersString.split(";"));
                 managerNames = this.convertNameListToUUIDList(managerNames);
                 Claim claim = new Claim(lesserBoundaryCorner, greaterBoundaryCorner, ownerID, builderNames, containerNames, accessorNames, managerNames, inheritNothing, claimID, false);
+                claim.setExpirationDate(expirationDate);
 
                 if (removeClaim)
                 {
@@ -445,6 +462,7 @@ public class DatabaseDataStore extends DataStore
         String managersString = this.storageStringBuilder(managers);
         boolean inheritNothing = claim.getSubclaimRestrictions();
         long parentId = claim.parent == null ? -1 : claim.parent.id;
+        long expirationDate = claim.getExpirationDate();
 
         try (PreparedStatement insertStmt = this.databaseConnection.prepareStatement(SQL_INSERT_CLAIM))
         {
@@ -459,6 +477,7 @@ public class DatabaseDataStore extends DataStore
             insertStmt.setString(8, managersString);
             insertStmt.setBoolean(9, inheritNothing);
             insertStmt.setLong(10, parentId);
+            insertStmt.setLong(11, expirationDate);
             insertStmt.executeUpdate();
         }
         catch (SQLException e)
@@ -472,10 +491,18 @@ public class DatabaseDataStore extends DataStore
     @Override
     synchronized void deleteClaimFromSecondaryStorage(Claim claim)
     {
+        boolean debugEnabled = GriefPrevention.instance.config_logs_debugEnabled;
+        
         try (PreparedStatement deleteStmnt = this.databaseConnection.prepareStatement(SQL_DELETE_CLAIM))
         {
             deleteStmnt.setLong(1, claim.id);
-            deleteStmnt.executeUpdate();
+            int rowsAffected = deleteStmnt.executeUpdate();
+            
+            if (debugEnabled) {
+                String claimType = claim.parent != null ? "subdivision" : "claim";
+                GriefPrevention.AddLogEntry("[DEBUG] Database: Deleted " + claimType + " " + claim.id 
+                    + " from database (rows affected: " + rowsAffected + ")", CustomLogEntryTypes.Debug, true);
+            }
         }
         catch (SQLException e)
         {

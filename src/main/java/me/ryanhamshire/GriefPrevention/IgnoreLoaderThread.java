@@ -3,7 +3,7 @@ package me.ryanhamshire.GriefPrevention;
 import com.google.common.io.Files;
 
 import java.io.File;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,7 +39,7 @@ class IgnoreLoaderThread extends Thread
                 needRetry = false;
 
                 //read the file content and immediately close it
-                List<String> lines = Files.readLines(ignoreFile, Charset.forName("UTF-8"));
+                List<String> lines = Files.readLines(ignoreFile, StandardCharsets.UTF_8);
 
                 //each line is one ignore.  asterisks indicate administrative ignores
                 for (String line : lines)
@@ -78,8 +78,11 @@ class IgnoreLoaderThread extends Thread
         //if last attempt failed, log information about the problem
         if (needRetry)
         {
-            GriefPrevention.AddLogEntry("Retry attempts exhausted.  Unable to load ignore data for player \"" + playerToLoad.toString() + "\": " + latestException.toString());
-            latestException.printStackTrace();
+            String exceptionMessage = latestException != null ? latestException.toString() : "Unknown error";
+            GriefPrevention.AddLogEntry("Retry attempts exhausted.  Unable to load ignore data for player \"" + playerToLoad.toString() + "\": " + exceptionMessage);
+            if (latestException != null) {
+                latestException.printStackTrace();
+            }
         }
     }
 }

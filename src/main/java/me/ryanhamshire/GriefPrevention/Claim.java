@@ -102,6 +102,9 @@ public class Claim
  
      //following a siege, buttons/levers are unlocked temporarily.  this represents that state
      public boolean doorsOpen = false;
+
+     //expiration date for this claim (0 = never expires)
+     private long expirationDate = 0;
  
      //set whether this claim should respect Y boundaries (for 3D subdivisions)
      public void set3D(boolean is3D) {
@@ -221,6 +224,7 @@ public class Claim
          this.children = new ArrayList<>(claim.children);
          this.doorsOpen = claim.doorsOpen;
          this.is3D = claim.is3D;
+         this.expirationDate = claim.expirationDate;
      }
  
      //measurements.  all measurements are in blocks
@@ -852,13 +856,23 @@ public class Claim
          }
          return this.ownerID;
      }
+
+     public long getExpirationDate()
+     {
+         return this.expirationDate;
+     }
+
+     public void setExpirationDate(long expirationDate)
+     {
+         this.expirationDate = expirationDate;
+     }
      public boolean contains(Location location, boolean ignoreHeight, boolean excludeSubdivisions) {
          if (!Objects.equals(location.getWorld(), this.lesserBoundaryCorner.getWorld())) {
              return false;
          }
 
          int x = location.getBlockX();
-         int y = location.getBlockY();
+         int y = location.getY() % 1 == 0 ? location.getBlockY() : location.getBlockY() + 1;
          int z = location.getBlockZ();
 
          int minX = Math.min(lesserBoundaryCorner.getBlockX(), greaterBoundaryCorner.getBlockX());
@@ -910,6 +924,127 @@ public class Claim
         int minY = Math.min(this.lesserBoundaryCorner.getBlockY(), this.greaterBoundaryCorner.getBlockY());
         int maxY = Math.max(this.lesserBoundaryCorner.getBlockY(), this.greaterBoundaryCorner.getBlockY());
         return y >= minY && y <= maxY;
+    }
+
+    /**
+     * Gets the minimum Y coordinate for this claim.
+     * <p>
+     * For 3D claims (subdivisions with is3D=true), returns the actual defined minimum Y boundary.
+     * For top-level claims and 2D subdivisions, returns the world's minimum build height.
+     * </p>
+     * This is part of the public API for extensions.
+     *
+     * @return the minimum Y coordinate for this claim
+     */
+    public int getMinY() {
+        if (this.is3D) {
+            return Math.min(this.lesserBoundaryCorner.getBlockY(), this.greaterBoundaryCorner.getBlockY());
+        }
+        // For non-3D claims, use world boundaries
+        World world = this.lesserBoundaryCorner.getWorld();
+        return world != null ? world.getMinHeight() : 0;
+    }
+
+    /**
+     * Gets the maximum Y coordinate for this claim.
+     * <p>
+     * For 3D claims (subdivisions with is3D=true), returns the actual defined maximum Y boundary.
+     * For top-level claims and 2D subdivisions, returns the world's maximum build height.
+     * </p>
+     * This is part of the public API for extensions.
+     *
+     * @return the maximum Y coordinate for this claim
+     */
+    public int getMaxY() {
+        if (this.is3D) {
+            return Math.max(this.lesserBoundaryCorner.getBlockY(), this.greaterBoundaryCorner.getBlockY());
+        }
+        // For non-3D claims, use world boundaries
+        World world = this.lesserBoundaryCorner.getWorld();
+        return world != null ? world.getMaxHeight() : 256;
+    }
+
+    /**
+     * Gets the Y-axis height (vertical size) of this claim in blocks.
+     * <p>
+     * For 3D claims, returns the actual vertical span of the claim.
+     * For non-3D claims, returns the full world height.
+     * </p>
+     * This is part of the public API for extensions.
+     *
+     * @return the vertical height of this claim in blocks
+     */
+    public int getYHeight() {
+        return getMaxY() - getMinY() + 1;
+    }
+
+    /**
+     * Gets detailed information about this claim's Y boundaries.
+     * This is part of the public API for extensions.
+     *
+     * @return a ClaimYInfo object containing min/max Y and claim type information
+     */
+    public @NotNull ClaimYInfo getYInfo() {
+        return new ClaimYInfo(this);
+    }
+
+    /**
+     * Holds detailed Y-coordinate information for a claim.
+     * This is part of the public API for extensions.
+     */
+    public static class ClaimYInfo {
+        private final int minY;
+        private final int maxY;
+        private final boolean is3D;
+        private final boolean isSubdivision;
+        private final boolean isAdminClaim;
+        private final String claimType;
+
+        ClaimYInfo(Claim claim) {
+            this.minY = claim.getMinY();
+            this.maxY = claim.getMaxY();
+            this.is3D = claim.is3D();
+            this.isSubdivision = claim.parent != null;
+            this.isAdminClaim = claim.isAdminClaim();
+            
+            if (claim.isAdminClaim()) {
+                this.claimType = claim.parent != null 
+                    ? (claim.is3D() ? "Admin 3D Subdivision" : "Admin 2D Subdivision")
+                    : "Admin Claim";
+            } else {
+                if (claim.parent != null) {
+                    this.claimType = claim.is3D() ? "3D Subdivision" : "2D Subdivision";
+                } else {
+                    this.claimType = "Main Claim";
+                }
+            }
+        }
+
+        /** @return the minimum Y coordinate */
+        public int getMinY() { return minY; }
+        
+        /** @return the maximum Y coordinate */
+        public int getMaxY() { return maxY; }
+        
+        /** @return the vertical height in blocks */
+        public int getHeight() { return maxY - minY + 1; }
+        
+        /** @return true if this is a 3D claim with custom Y boundaries */
+        public boolean is3D() { return is3D; }
+        
+        /** @return true if this is a subdivision (has a parent claim) */
+        public boolean isSubdivision() { return isSubdivision; }
+        
+        /** @return true if this is an admin claim */
+        public boolean isAdminClaim() { return isAdminClaim; }
+        
+        /** @return a human-readable claim type string (e.g., "Main Claim", "3D Subdivision", "Admin Claim") */
+        public String getClaimType() { return claimType; }
+
+        @Override
+        public String toString() {
+            return "ClaimYInfo{type=" + claimType + ", minY=" + minY + ", maxY=" + maxY + ", height=" + getHeight() + "}";
+        }
     }
 
     //whether or not two claims overlap

@@ -18,11 +18,11 @@
 
 package me.ryanhamshire.GriefPrevention;
 
-import com.google.common.io.Files;
 import me.ryanhamshire.GriefPrevention.util.SchedulerUtil;
 
 import java.io.File;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -106,7 +106,7 @@ class CustomLogger
             File logFile = new File(filepath);
 
             //dump content
-            Files.append(this.queuedEntries.toString(), logFile, Charset.forName("UTF-8"));
+            java.nio.file.Files.writeString(logFile.toPath(), this.queuedEntries.toString(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 
             //in case of a failure to write the above due to exception,
             //the unwritten entries will remain the buffer for the next write to retry

@@ -20,7 +20,7 @@ package me.ryanhamshire.GriefPrevention;
 
 import org.bukkit.ChatColor;
 
-//just a few constants for chat color codes
+// Enum for text formatting modes with associated chat colors
 public final class TextMode
 {
     public final static ChatColor Info = ChatColor.AQUA;
@@ -28,6 +28,16 @@ public final class TextMode
     public final static ChatColor Warn = ChatColor.GOLD;
     public final static ChatColor Err = ChatColor.RED;
     public final static ChatColor Success = ChatColor.GREEN;
-
-    private TextMode() {}
+    
+    private final ChatColor color;
+    
+    // Private constructor for enum-style usage
+    private TextMode(ChatColor color) {
+        this.color = color;
+    }
+    
+    // Get the ChatColor for this TextMode
+    public ChatColor getColor() {
+        return this.color;
+    }
 }

@@ -35,3 +35,94 @@ Updating Other Claim Fields
 Uniquely Identifying a Claim
 
 Getting/Updating Player Data
+
+Getting World and Claim Y Dimensions
+
+This API allows you to query the vertical (Y-axis) boundaries for worlds and claims. This is particularly useful for extensions that need to understand claim boundaries for different claim types.
+
+== World Y Boundaries ==
+
+GriefPrevention.getWorldMinY(world) - gets the minimum Y coordinate (build limit) for the world
+GriefPrevention.getWorldMaxY(world) - gets the maximum Y coordinate (build limit) for the world
+
+Example:
+    World world = player.getWorld();
+    int minY = GriefPrevention.getWorldMinY(world);  // e.g., -64 in 1.18+
+    int maxY = GriefPrevention.getWorldMaxY(world);  // e.g., 320 in 1.18+
+
+== Claim Y Boundaries ==
+
+claim.getMinY() - gets the minimum Y coordinate for the claim
+claim.getMaxY() - gets the maximum Y coordinate for the claim
+claim.getYHeight() - gets the vertical height of the claim in blocks
+claim.containsY(y) - checks if a Y coordinate is within the claim's boundaries
+claim.is3D() - checks if this is a 3D claim (respects custom Y boundaries)
+
+Behavior by claim type:
+- Main Claims: Always span world min to max Y (full height)
+- Admin Claims: Always span world min to max Y (full height)
+- 2D Subdivisions: Span world min to max Y (inherit from world)
+- 3D Subdivisions: Use their own defined Y boundaries
+
+Example:
+    Claim claim = GriefPrevention.instance.dataStore.getClaimAt(location, true, null);
+    if (claim != null) {
+        int minY = claim.getMinY();
+        int maxY = claim.getMaxY();
+        int height = claim.getYHeight();
+        boolean is3D = claim.is3D();
+        
+        if (is3D) {
+            // This claim has custom Y boundaries
+            player.sendMessage("This 3D claim spans Y " + minY + " to " + maxY);
+        } else {
+            // This claim spans the full world height
+            player.sendMessage("This claim spans the full world height");
+        }
+    }
+
+== Detailed Claim Y Information ==
+
+For more detailed information, use the ClaimYInfo class:
+
+claim.getYInfo() - returns a ClaimYInfo object with comprehensive Y boundary data
+
+ClaimYInfo methods:
+- getMinY() - minimum Y coordinate
+- getMaxY() - maximum Y coordinate  
+- getHeight() - vertical height in blocks
+- is3D() - true if claim has custom Y boundaries
+- isSubdivision() - true if this is a subdivision (has parent)
+- isAdminClaim() - true if this is an admin claim
+- getClaimType() - human-readable type: "Main Claim", "Admin Claim", "2D Subdivision", "3D Subdivision", "Admin 2D Subdivision", "Admin 3D Subdivision"
+
+Example:
+    Claim claim = GriefPrevention.instance.dataStore.getClaimAt(location, true, null);
+    if (claim != null) {
+        Claim.ClaimYInfo yInfo = claim.getYInfo();
+        
+        player.sendMessage("Claim Type: " + yInfo.getClaimType());
+        player.sendMessage("Y Range: " + yInfo.getMinY() + " to " + yInfo.getMaxY());
+        player.sendMessage("Height: " + yInfo.getHeight() + " blocks");
+        
+        if (yInfo.is3D()) {
+            player.sendMessage("This is a 3D claim with custom vertical boundaries.");
+        }
+        
+        // toString() provides a summary
+        System.out.println(yInfo.toString());
+        // Output: ClaimYInfo{type=3D Subdivision, minY=60, maxY=80, height=21}
+    }
+
+== Checking Y Containment ==
+
+claim.containsY(y) - checks if a Y coordinate is within the claim's Y boundaries
+
+For 3D claims, this checks against the actual Y boundaries.
+For non-3D claims, this always returns true (Y is not enforced).
+
+Example:
+    int blockY = block.getY();
+    if (claim.containsY(blockY)) {
+        // The Y coordinate is within this claim's vertical boundaries
+    }

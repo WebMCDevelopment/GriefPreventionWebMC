@@ -2371,14 +2371,11 @@ import me.ryanhamshire.GriefPrevention.util.SchedulerUtil;
                                     int parentMinY = Math.min(parentMin.getBlockY(), parentMax.getBlockY());
                                     int parentMaxY = Math.max(parentMin.getBlockY(), parentMax.getBlockY());
 
-                                    int minAllowedX = parentMin.getBlockX() + inset;
-                                    int maxAllowedX = parentMax.getBlockX() - inset;
-                                    int minAllowedZ = parentMin.getBlockZ() + inset;
-                                    int maxAllowedZ = parentMax.getBlockZ() - inset;
+                                    // Only enforce Y-axis inset for 3D claims, allow X/Z boundaries to match parent
                                     int minAllowedY = parentMinY + inset;
                                     int maxAllowedY = parentMaxY - inset;
 
-                                    if (minAllowedX > maxAllowedX || minAllowedZ > maxAllowedZ || minAllowedY > maxAllowedY)
+                                    if (minAllowedY > maxAllowedY)
                                     {
                                         GriefPrevention.sendMessage(player, TextMode.Err, Messages.CreateSubdivisionOverlap);
                                         return;
@@ -2391,9 +2388,7 @@ import me.ryanhamshire.GriefPrevention.util.SchedulerUtil;
                                     int subMinY = Math.min(minY, maxY);
                                     int subMaxY = Math.max(minY, maxY);
 
-                                    if (subMinX < minAllowedX || subMaxX > maxAllowedX
-                                            || subMinZ < minAllowedZ || subMaxZ > maxAllowedZ
-                                            || subMinY < minAllowedY || subMaxY > maxAllowedY)
+                                    if (subMinY < minAllowedY || subMaxY > maxAllowedY)
                                     {
                                         GriefPrevention.sendMessage(player, TextMode.Err, Messages.InnerSubdivisionTooClose);
                                         return;
@@ -2401,86 +2396,64 @@ import me.ryanhamshire.GriefPrevention.util.SchedulerUtil;
                                 }
                             }
 
-                            // Ensure 3D subclaims placed inside 2D parents stay inset from parent and sibling borders.
+                            // Ensure 3D subclaims placed inside 2D parents - allow X/Z boundaries to match parent
                             if (playerData.shovelMode == ShovelMode.Subdivide3D
                                     && playerData.claimSubdividing != null
                                     && !playerData.claimSubdividing.is3D())
                             {
+                                // No X/Z inset enforcement - allow subdivisions to share parent boundaries
+                                // Only sibling collision checks remain
                                 Claim parentClaim = playerData.claimSubdividing;
-                                int inset = 1;
-                                if (inset > 0)
+                                int proposedMinX = Math.min(playerData.lastShovelLocation.getBlockX(), clickedBlock.getX());
+                                int proposedMaxX = Math.max(playerData.lastShovelLocation.getBlockX(), clickedBlock.getX());
+                                int proposedMinZ = Math.min(playerData.lastShovelLocation.getBlockZ(), clickedBlock.getZ());
+                                int proposedMaxZ = Math.max(playerData.lastShovelLocation.getBlockZ(), clickedBlock.getZ());
+
+                                for (Claim sibling : parentClaim.children)
                                 {
-                                    Location parentMin = parentClaim.getLesserBoundaryCorner();
-                                    Location parentMax = parentClaim.getGreaterBoundaryCorner();
+                                    if (!sibling.inDataStore || sibling.is3D()) continue;
 
-                                    int parentMinX = Math.min(parentMin.getBlockX(), parentMax.getBlockX());
-                                    int parentMaxX = Math.max(parentMin.getBlockX(), parentMax.getBlockX());
-                                    int parentMinZ = Math.min(parentMin.getBlockZ(), parentMax.getBlockZ());
-                                    int parentMaxZ = Math.max(parentMin.getBlockZ(), parentMax.getBlockZ());
+                                    Location siblingMin = sibling.getLesserBoundaryCorner();
+                                    Location siblingMax = sibling.getGreaterBoundaryCorner();
 
-                                    int minAllowedX = parentMinX + inset;
-                                    int maxAllowedX = parentMaxX - inset;
-                                    int minAllowedZ = parentMinZ + inset;
-                                    int maxAllowedZ = parentMaxZ - inset;
+                                    int siblingMinX = Math.min(siblingMin.getBlockX(), siblingMax.getBlockX());
+                                    int siblingMaxX = Math.max(siblingMin.getBlockX(), siblingMax.getBlockX());
+                                    int siblingMinZ = Math.min(siblingMin.getBlockZ(), siblingMax.getBlockZ());
+                                    int siblingMaxZ = Math.max(siblingMin.getBlockZ(), siblingMax.getBlockZ());
 
-                                    int proposedMinX = Math.min(playerData.lastShovelLocation.getBlockX(), clickedBlock.getX());
-                                    int proposedMaxX = Math.max(playerData.lastShovelLocation.getBlockX(), clickedBlock.getX());
-                                    int proposedMinZ = Math.min(playerData.lastShovelLocation.getBlockZ(), clickedBlock.getZ());
-                                    int proposedMaxZ = Math.max(playerData.lastShovelLocation.getBlockZ(), clickedBlock.getZ());
-
-                                    if (proposedMinX < minAllowedX || proposedMaxX > maxAllowedX
-                                            || proposedMinZ < minAllowedZ || proposedMaxZ > maxAllowedZ)
+                                    boolean zOverlap = proposedMinZ <= siblingMaxZ && proposedMaxZ >= siblingMinZ;
+                                    if (zOverlap)
                                     {
-                                        GriefPrevention.sendMessage(player, TextMode.Err, Messages.InnerSubdivisionTooClose);
-                                        return;
-                                    }
-
-                                    for (Claim sibling : parentClaim.children)
-                                    {
-                                        if (!sibling.inDataStore || sibling.is3D()) continue;
-
-                                        Location siblingMin = sibling.getLesserBoundaryCorner();
-                                        Location siblingMax = sibling.getGreaterBoundaryCorner();
-
-                                        int siblingMinX = Math.min(siblingMin.getBlockX(), siblingMax.getBlockX());
-                                        int siblingMaxX = Math.max(siblingMin.getBlockX(), siblingMax.getBlockX());
-                                        int siblingMinZ = Math.min(siblingMin.getBlockZ(), siblingMax.getBlockZ());
-                                        int siblingMaxZ = Math.max(siblingMin.getBlockZ(), siblingMax.getBlockZ());
-
-                                        boolean zOverlap = proposedMinZ <= siblingMaxZ && proposedMaxZ >= siblingMinZ;
-                                        if (zOverlap)
+                                        int gapEast = proposedMinX - siblingMaxX;
+                                        if (gapEast >= 0 && gapEast < 1)
                                         {
-                                            int gapEast = proposedMinX - siblingMaxX;
-                                            if (gapEast >= 0 && gapEast < 1)
-                                            {
-                                                GriefPrevention.sendMessage(player, TextMode.Err, Messages.InnerSubdivisionTooClose);
-                                                return;
-                                            }
-
-                                            int gapWest = siblingMinX - proposedMaxX;
-                                            if (gapWest >= 0 && gapWest < 1)
-                                            {
-                                                GriefPrevention.sendMessage(player, TextMode.Err, Messages.InnerSubdivisionTooClose);
-                                                return;
-                                            }
+                                            GriefPrevention.sendMessage(player, TextMode.Err, Messages.InnerSubdivisionTooClose);
+                                            return;
                                         }
 
-                                        boolean xOverlap = proposedMinX <= siblingMaxX && proposedMaxX >= siblingMinX;
-                                        if (xOverlap)
+                                        int gapWest = siblingMinX - proposedMaxX;
+                                        if (gapWest >= 0 && gapWest < 1)
                                         {
-                                            int gapSouth = proposedMinZ - siblingMaxZ;
-                                            if (gapSouth >= 0 && gapSouth < 1)
-                                            {
-                                                GriefPrevention.sendMessage(player, TextMode.Err, Messages.InnerSubdivisionTooClose);
-                                                return;
-                                            }
+                                            GriefPrevention.sendMessage(player, TextMode.Err, Messages.InnerSubdivisionTooClose);
+                                            return;
+                                        }
+                                    }
 
-                                            int gapNorth = siblingMinZ - proposedMaxZ;
-                                            if (gapNorth >= 0 && gapNorth < 1)
-                                            {
-                                                GriefPrevention.sendMessage(player, TextMode.Err, Messages.InnerSubdivisionTooClose);
-                                                return;
-                                            }
+                                    boolean xOverlap = proposedMinX <= siblingMaxX && proposedMaxX >= siblingMinX;
+                                    if (xOverlap)
+                                    {
+                                        int gapSouth = proposedMinZ - siblingMaxZ;
+                                        if (gapSouth >= 0 && gapSouth < 1)
+                                        {
+                                            GriefPrevention.sendMessage(player, TextMode.Err, Messages.InnerSubdivisionTooClose);
+                                            return;
+                                        }
+
+                                        int gapNorth = siblingMinZ - proposedMaxZ;
+                                        if (gapNorth >= 0 && gapNorth < 1)
+                                        {
+                                            GriefPrevention.sendMessage(player, TextMode.Err, Messages.InnerSubdivisionTooClose);
+                                            return;
                                         }
                                     }
                                 }

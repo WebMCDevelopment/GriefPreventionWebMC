@@ -16,7 +16,7 @@ import java.util.function.Predicate;
 /**
  * A container for tab completion helper methods.
  */
-final class TabCompletions
+public final class TabCompletions
 {
 
     public static @NotNull List<String> integer(
@@ -81,7 +81,7 @@ final class TabCompletions
      * @param args the existing command arguments
      * @return the matching players' names
      */
-    static @NotNull List<String> visiblePlayers(@Nullable CommandSender sender, @NotNull String[] args)
+    public static @NotNull List<String> visiblePlayers(@Nullable CommandSender sender, @NotNull String[] args)
     {
         // Bukkit returns a view of the player list. So that Craftbukkit doesn't have to hack around type limitations,
         // this is actually a view of the player implementation, represented via Bukkit as a generic extending Player.
