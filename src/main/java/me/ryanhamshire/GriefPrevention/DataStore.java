@@ -1540,6 +1540,9 @@ public abstract class DataStore {
                 // parent.
                 // Also saves affected claims.
                 setNewDepth(claim, claim.getLesserBoundaryCorner().getBlockY());
+            } else {
+                // 3D claims must be saved explicitly since setNewDepth is not called
+                this.saveClaim(claim);
             }
             result.claim = claim;
             addToChunkClaimMap(claim); // add the new boundary to the chunk cache
