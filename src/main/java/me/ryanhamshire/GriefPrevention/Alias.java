@@ -102,7 +102,7 @@ public enum Alias {
       arguments:
         player:
           type: player
-      """, "list"),
+      """, "claimslist"),
 
   ClaimMode("""
       enable: true
@@ -250,13 +250,13 @@ public enum Alias {
 
   AClaimList("""
       enable: true
-      commands: [list]
+      commands: [adminclaimslist]
       usage: "/aclaim list [player]"
       description: Show claims owned by a player (including admin claims).
       arguments:
         player:
           type: player
-      """, "list"),
+      """, "adminclaimslist"),
 
   AClaimCheckExpiry("""
       enable: true
