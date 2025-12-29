@@ -32,8 +32,8 @@ public class UnifiedClaimCommand extends UnifiedCommandHandler {
         registerSubcommand("mode", createModeTabExecutor());
         registerSubcommand("restrictsubclaim", this::handleRestrictSubclaim);
         registerSubcommand("explosions", this::handleExplosions);
-        registerSubcommand("buyblocks", this::handleBuyBlocks);
-        registerSubcommand("sellblocks", this::handleSellBlocks);
+        registerSubcommand("buyblocks", createBuyBlocksTabExecutor());
+        registerSubcommand("sellblocks", createSellBlocksTabExecutor());
         registerSubcommand("abandon", this::handleAbandon, "abandonall");
         registerSubcommand("siege", this::handleSiege);
         registerSubcommand("trapped", this::handleTrapped);
@@ -48,8 +48,8 @@ public class UnifiedClaimCommand extends UnifiedCommandHandler {
         registerStandaloneCommand(Alias.ClaimMode, createModeTabExecutor());
         registerStandaloneCommand(Alias.ClaimRestrictSubclaim, this::handleRestrictSubclaim);
         registerStandaloneCommand(Alias.ClaimExplosions, this::handleExplosions);
-        registerStandaloneCommand(Alias.ClaimBuyBlocks, this::handleBuyBlocks);
-        registerStandaloneCommand(Alias.ClaimSellBlocks, this::handleSellBlocks);
+        registerStandaloneCommand(Alias.ClaimBuyBlocks, createBuyBlocksTabExecutor());
+        registerStandaloneCommand(Alias.ClaimSellBlocks, createSellBlocksTabExecutor());
         registerStandaloneCommand(Alias.ClaimAbandon, this::handleAbandon);
         registerStandaloneCommand(Alias.ClaimSiege, this::handleSiege);
         registerStandaloneCommand(Alias.ClaimTrapped, this::handleTrapped);
@@ -324,24 +324,189 @@ public class UnifiedClaimCommand extends UnifiedCommandHandler {
         return plugin.handleClaimExplosionsCommand(sender, args);
     }
 
+    private org.bukkit.command.TabExecutor createBuyBlocksTabExecutor() {
+        return new org.bukkit.command.TabExecutor() {
+            @Override
+            public boolean onCommand(@NotNull CommandSender sender, @NotNull org.bukkit.command.Command command, @NotNull String label, String[] args) {
+                return handleBuyBlocks(sender, args);
+            }
+
+            @Override
+            public java.util.List<String> onTabComplete(@NotNull CommandSender sender, @NotNull org.bukkit.command.Command command, @NotNull String label, String[] args) {
+                if (args.length == 1) {
+                    return java.util.Arrays.asList("10", "50", "100", "500", "1000").stream()
+                            .filter(s -> s.startsWith(args[0]))
+                            .collect(java.util.stream.Collectors.toList());
+                }
+                return java.util.Collections.emptyList();
+            }
+        };
+    }
+
+    private org.bukkit.command.TabExecutor createSellBlocksTabExecutor() {
+        return new org.bukkit.command.TabExecutor() {
+            @Override
+            public boolean onCommand(@NotNull CommandSender sender, @NotNull org.bukkit.command.Command command, @NotNull String label, String[] args) {
+                return handleSellBlocks(sender, args);
+            }
+
+            @Override
+            public java.util.List<String> onTabComplete(@NotNull CommandSender sender, @NotNull org.bukkit.command.Command command, @NotNull String label, String[] args) {
+                if (args.length == 1) {
+                    return java.util.Arrays.asList("10", "50", "100", "500", "1000").stream()
+                            .filter(s -> s.startsWith(args[0]))
+                            .collect(java.util.stream.Collectors.toList());
+                }
+                return java.util.Collections.emptyList();
+            }
+        };
+    }
+
     private boolean handleBuyBlocks(CommandSender sender, String[] args) {
-        // Economy integration is not available in this version
-        if (sender instanceof Player player) {
-            GriefPrevention.sendMessage(player, TextMode.Info, "The buy claim blocks feature requires economy integration which is not available.");
-        } else {
-            sender.sendMessage("The buy claim blocks feature requires economy integration which is not available.");
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("This command can only be used by players.");
+            return true;
         }
+
+        // Check if economy is enabled in config
+        if (!plugin.config_economy_claimBlocksEnabled) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.EconomyDisabled);
+            return true;
+        }
+
+        // Check for Vault economy
+        net.milkbowl.vault.economy.Economy economy = getEconomy();
+        if (economy == null) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.EconomyNoVault);
+            return true;
+        }
+
+        // Parse amount argument
+        if (args.length < 1) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.EconomyBuyBlocksUsage);
+            return true;
+        }
+
+        int amount;
+        try {
+            amount = Integer.parseInt(args[0]);
+            if (amount <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException e) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.EconomyInvalidAmount);
+            return true;
+        }
+
+        // Calculate cost
+        double cost = amount * plugin.config_economy_claimBlocksPurchaseCost;
+        double balance = economy.getBalance(player);
+
+        if (balance < cost) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.EconomyNotEnoughMoney,
+                    String.format("%.2f", cost), String.format("%.2f", balance));
+            return true;
+        }
+
+        // Process the transaction
+        economy.withdrawPlayer(player, cost);
+        PlayerData playerData = plugin.dataStore.getPlayerData(player.getUniqueId());
+        playerData.setBonusClaimBlocks(playerData.getBonusClaimBlocks() + amount);
+        plugin.dataStore.savePlayerData(player.getUniqueId(), playerData);
+
+        int newTotal = playerData.getRemainingClaimBlocks();
+        GriefPrevention.sendMessage(player, TextMode.Success, Messages.EconomyBuyBlocksConfirmation,
+                String.valueOf(amount), String.format("%.2f", cost), String.valueOf(newTotal));
+
         return true;
     }
 
     private boolean handleSellBlocks(CommandSender sender, String[] args) {
-        // Economy integration is not available in this version
-        if (sender instanceof Player player) {
-            GriefPrevention.sendMessage(player, TextMode.Info, "The sell claim blocks feature requires economy integration which is not available.");
-        } else {
-            sender.sendMessage("The sell claim blocks feature requires economy integration which is not available.");
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("This command can only be used by players.");
+            return true;
         }
+
+        // Check if economy is enabled in config
+        if (!plugin.config_economy_claimBlocksEnabled) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.EconomyDisabled);
+            return true;
+        }
+
+        // Check for Vault economy
+        net.milkbowl.vault.economy.Economy economy = getEconomy();
+        if (economy == null) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.EconomyNoVault);
+            return true;
+        }
+
+        // Parse amount argument
+        if (args.length < 1) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.EconomySellBlocksUsage);
+            return true;
+        }
+
+        int amount;
+        try {
+            amount = Integer.parseInt(args[0]);
+            if (amount <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException e) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.EconomyInvalidAmount);
+            return true;
+        }
+
+        // Check if player has enough blocks to sell
+        PlayerData playerData = plugin.dataStore.getPlayerData(player.getUniqueId());
+        int availableBlocks = playerData.getRemainingClaimBlocks();
+
+        if (availableBlocks < amount) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.EconomyNotEnoughBlocks,
+                    String.valueOf(amount), String.valueOf(availableBlocks));
+            return true;
+        }
+
+        // Calculate value
+        double value = amount * plugin.config_economy_claimBlocksSellValue;
+
+        // Process the transaction - reduce bonus blocks first, then accrued if needed
+        int bonusBlocks = playerData.getBonusClaimBlocks();
+        if (bonusBlocks >= amount) {
+            playerData.setBonusClaimBlocks(bonusBlocks - amount);
+        } else {
+            // Use all bonus blocks first, then reduce accrued
+            int remaining = amount - bonusBlocks;
+            playerData.setBonusClaimBlocks(0);
+            playerData.setAccruedClaimBlocks(playerData.getAccruedClaimBlocks() - remaining);
+        }
+        plugin.dataStore.savePlayerData(player.getUniqueId(), playerData);
+
+        economy.depositPlayer(player, value);
+
+        int newTotal = playerData.getRemainingClaimBlocks();
+        GriefPrevention.sendMessage(player, TextMode.Success, Messages.EconomySellBlocksConfirmation,
+                String.valueOf(amount), String.format("%.2f", value), String.valueOf(newTotal));
+
         return true;
+    }
+
+    private static net.milkbowl.vault.economy.Economy cachedEconomy = null;
+    private static boolean economyChecked = false;
+
+    private net.milkbowl.vault.economy.Economy getEconomy() {
+        if (economyChecked) return cachedEconomy;
+        economyChecked = true;
+
+        try {
+            if (plugin.getServer().getPluginManager().getPlugin("Vault") == null) {
+                return null;
+            }
+            org.bukkit.plugin.RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> rsp =
+                    plugin.getServer().getServicesManager().getRegistration(net.milkbowl.vault.economy.Economy.class);
+            if (rsp == null) return null;
+            cachedEconomy = rsp.getProvider();
+        } catch (NoClassDefFoundError e) {
+            // Vault is not installed
+            cachedEconomy = null;
+        }
+        return cachedEconomy;
     }
 
     private boolean handleAbandon(CommandSender sender, String[] args) {

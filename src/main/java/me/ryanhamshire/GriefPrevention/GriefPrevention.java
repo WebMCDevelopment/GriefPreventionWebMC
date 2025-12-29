@@ -189,6 +189,11 @@ public class GriefPrevention extends JavaPlugin {
 
     public boolean config_claims_lecternReadingRequiresAccessTrust; // reading lecterns requires access trust
 
+    // Economy settings for buying/selling claim blocks
+    public boolean config_economy_claimBlocksEnabled; // whether players can buy/sell claim blocks
+    public double config_economy_claimBlocksPurchaseCost; // cost per claim block when buying
+    public double config_economy_claimBlocksSellValue; // value per claim block when selling
+
     public boolean config_spam_enabled; // whether or not to monitor for spam
     public int config_spam_loginCooldownSeconds; // how long players must wait between logins. combats login spam.
     public int config_spam_loginLogoutNotificationsPerMinute; // how many login/logout notifications to show per minute
@@ -423,6 +428,15 @@ public class GriefPrevention extends JavaPlugin {
         // combat/damage-specific entity events
         entityDamageHandler = new EntityDamageHandler(this.dataStore, this);
         pluginManager.registerEvents(entityDamageHandler, this);
+
+        // Register knockback handler - use Paper's event if available, otherwise use Spigot's
+        if (PaperKnockbackHandler.isPaperEventAvailable()) {
+            pluginManager.registerEvents(new PaperKnockbackHandler(this.dataStore, this), this);
+            AddLogEntry("Using Paper knockback handler for wind charge protection.");
+        } else {
+            pluginManager.registerEvents(new SpigotKnockbackHandler(this.dataStore, this), this);
+            AddLogEntry("Using Spigot knockback handler for wind charge protection.");
+        }
 
         // cache offline players
         OfflinePlayer[] offlinePlayers = this.getServer().getOfflinePlayers();
@@ -715,6 +729,11 @@ public class GriefPrevention extends JavaPlugin {
         this.config_claims_lecternReadingRequiresAccessTrust = config
                 .getBoolean("GriefPrevention.Claims.LecternReadingRequiresAccessTrust", true);
 
+        // Economy settings - disabled by default
+        this.config_economy_claimBlocksEnabled = config.getBoolean("GriefPrevention.Economy.ClaimBlocksEnabled", false);
+        this.config_economy_claimBlocksPurchaseCost = config.getDouble("GriefPrevention.Economy.ClaimBlocksPurchaseCost", 1.0);
+        this.config_economy_claimBlocksSellValue = config.getDouble("GriefPrevention.Economy.ClaimBlocksSellValue", 0.5);
+
         this.config_spam_enabled = config.getBoolean("GriefPrevention.Spam.Enabled", true);
         this.config_spam_loginCooldownSeconds = config.getInt("GriefPrevention.Spam.LoginCooldownSeconds", 60);
         this.config_spam_loginLogoutNotificationsPerMinute = config
@@ -912,6 +931,11 @@ public class GriefPrevention extends JavaPlugin {
         outConfig.set("GriefPrevention.Claims.FireDamagesInClaims", config_claims_firedamages);
         outConfig.set("GriefPrevention.Claims.LecternReadingRequiresAccessTrust",
                 config_claims_lecternReadingRequiresAccessTrust);
+
+        // Economy settings
+        outConfig.set("GriefPrevention.Economy.ClaimBlocksEnabled", this.config_economy_claimBlocksEnabled);
+        outConfig.set("GriefPrevention.Economy.ClaimBlocksPurchaseCost", this.config_economy_claimBlocksPurchaseCost);
+        outConfig.set("GriefPrevention.Economy.ClaimBlocksSellValue", this.config_economy_claimBlocksSellValue);
 
         outConfig.set("GriefPrevention.Spam.Enabled", this.config_spam_enabled);
         outConfig.set("GriefPrevention.Spam.LoginCooldownSeconds", this.config_spam_loginCooldownSeconds);

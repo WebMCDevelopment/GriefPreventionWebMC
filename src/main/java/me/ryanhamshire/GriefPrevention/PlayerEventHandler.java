@@ -2117,6 +2117,14 @@ import me.ryanhamshire.GriefPrevention.util.SchedulerUtil;
              }
  
              playerData = this.dataStore.getPlayerData(player.getUniqueId());
+
+             // Handle RestoreNature shovel modes
+            if (playerData.shovelMode == ShovelMode.RestoreNature ||
+                    playerData.shovelMode == ShovelMode.RestoreNatureAggressive ||
+                    playerData.shovelMode == ShovelMode.RestoreNatureFill) {
+                handleRestoreNature(player, clickedBlock, playerData);
+                return;
+            }
  
              //if he's resizing a claim and that claim hasn't been deleted since he started resizing it
              if (playerData.claimResizing != null && playerData.claimResizing.inDataStore)
@@ -2954,4 +2962,55 @@ import me.ryanhamshire.GriefPrevention.util.SchedulerUtil;
              }
          }
      } 
+     /**
+     * Handle RestoreNature shovel mode interactions.
+     * Captures block snapshots and starts async processing to restore nature.
+     * Folia-safe using SchedulerUtil.
+     */
+     private void handleRestoreNature(Player player, Block clickedBlock, PlayerData playerData) {
+         World world = clickedBlock.getWorld();
+         int centerX = clickedBlock.getX();
+         int centerZ = clickedBlock.getZ();
+         int minY = world.getMinHeight();
+         int maxY = world.getMaxHeight();
+         int radius = 5;
+        if (playerData.shovelMode == ShovelMode.RestoreNatureFill) {
+            radius = Math.max(1, Math.min(playerData.fillRadius, 10));
+        }
+         int minX = centerX - radius;
+         int maxX = centerX + radius;
+         int minZ = centerZ - radius;
+         int maxZ = centerZ + radius;
+         int sizeX = maxX - minX + 1;
+         int sizeY = maxY - minY;
+         int sizeZ = maxZ - minZ + 1;
+         BlockSnapshot[][][] snapshots = new BlockSnapshot[sizeX][sizeY][sizeZ];
+         for (int x = 0; x < sizeX; x++) {
+             for (int z = 0; z < sizeZ; z++) {
+                 for (int y = 0; y < sizeY; y++) {
+                     Block block = world.getBlockAt(minX + x, minY + y, minZ + z);
+                     snapshots[x][y][z] = new BlockSnapshot(block);
+                 }
+             }
+         }
+         Location lesserCorner = new Location(world, minX, minY, minZ);
+         Location greaterCorner = new Location(world, maxX, maxY - 1, maxZ);
+         boolean aggressiveMode = playerData.shovelMode == ShovelMode.RestoreNatureAggressive;
+         org.bukkit.block.Biome biome = clickedBlock.getBiome();
+         boolean creativeMode = instance.creativeRulesApply(clickedBlock.getLocation());
+         RestoreNatureProcessingTask processingTask = new RestoreNatureProcessingTask(
+                 snapshots,
+                 minY,
+                 world.getEnvironment(),
+                 biome,
+                 lesserCorner,
+                 greaterCorner,
+                 world.getSeaLevel(),
+                 aggressiveMode,
+                 creativeMode,
+                 player
+         );
+         me.ryanhamshire.GriefPrevention.util.SchedulerUtil.runAsyncNow(instance, processingTask);
+         GriefPrevention.sendMessage(player, TextMode.Info, "Restoring nature in the selected area...");
+     }
  }

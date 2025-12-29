@@ -383,4 +383,98 @@ public final class SchedulerUtil {
     public static TaskHandle runLaterEntity(Plugin plugin, Player player, Runnable runnable, long delayTicks) {
         return runLaterEntity(plugin, (Entity) player, runnable, delayTicks);
     }
+
+    // Helper to obtain Folia's RegionScheduler via reflection
+    private static Object getRegionScheduler() throws Exception {
+        try {
+            Method staticGetter = Bukkit.class.getMethod("getRegionScheduler");
+            return staticGetter.invoke(null);
+        } catch (Throwable ignored) {
+            Object server = Bukkit.getServer();
+            Method instanceGetter = server.getClass().getMethod("getRegionScheduler");
+            return instanceGetter.invoke(server);
+        }
+    }
+
+    /**
+     * Schedules a task to run at a specific location's region (Folia-safe).
+     * On non-Folia servers, runs on the main thread.
+     */
+    public static TaskHandle runAtLocation(Plugin plugin, org.bukkit.Location location, Runnable runnable) {
+        Objects.requireNonNull(plugin);
+        Objects.requireNonNull(location);
+        Objects.requireNonNull(runnable);
+        if (FOLIA_PRESENT) {
+            try {
+                Object regionScheduler = getRegionScheduler();
+                Consumer<Object> consumer = (ignored) -> runnable.run();
+                // Try execute(Plugin, Location, Consumer) first - runs immediately in the region
+                for (Method m : regionScheduler.getClass().getMethods()) {
+                    if (!m.getName().equals("execute")) continue;
+                    Class<?>[] params = m.getParameterTypes();
+                    if (params.length == 3 
+                            && Plugin.class.isAssignableFrom(params[0])
+                            && org.bukkit.Location.class.isAssignableFrom(params[1])
+                            && Consumer.class.isAssignableFrom(params[2])) {
+                        m.invoke(regionScheduler, plugin, location, consumer);
+                        return new TaskHandle(null); // execute doesn't return a ScheduledTask
+                    }
+                }
+                // Fallback: try run(Plugin, Location, Consumer)
+                for (Method m : regionScheduler.getClass().getMethods()) {
+                    if (!m.getName().equals("run")) continue;
+                    Class<?>[] params = m.getParameterTypes();
+                    if (params.length == 3 
+                            && Plugin.class.isAssignableFrom(params[0])
+                            && org.bukkit.Location.class.isAssignableFrom(params[1])
+                            && Consumer.class.isAssignableFrom(params[2])) {
+                        Object scheduled = m.invoke(regionScheduler, plugin, location, consumer);
+                        return new TaskHandle(scheduled);
+                    }
+                }
+                throw new UnsupportedOperationException("No compatible RegionScheduler#execute or #run method found");
+            } catch (Throwable t) {
+                throw new UnsupportedOperationException("Folia detected but failed to schedule at location", t);
+            }
+        }
+        // Non-Folia fallback - run on main thread
+        BukkitTask task = Bukkit.getScheduler().runTask(plugin, runnable);
+        return new TaskHandle(task);
+    }
+
+    /**
+     * Schedules a task to run at a specific location's region after a delay (Folia-safe).
+     * On non-Folia servers, runs on the main thread after the delay.
+     */
+    public static TaskHandle runAtLocationLater(Plugin plugin, org.bukkit.Location location, Runnable runnable, long delayTicks) {
+        Objects.requireNonNull(plugin);
+        Objects.requireNonNull(location);
+        Objects.requireNonNull(runnable);
+        long safeDelay = Math.max(1L, delayTicks);
+        if (FOLIA_PRESENT) {
+            try {
+                Object regionScheduler = getRegionScheduler();
+                Consumer<Object> consumer = (ignored) -> runnable.run();
+                // Try runDelayed(Plugin, Location, Consumer, long)
+                for (Method m : regionScheduler.getClass().getMethods()) {
+                    if (!m.getName().equals("runDelayed")) continue;
+                    Class<?>[] params = m.getParameterTypes();
+                    if (params.length == 4 
+                            && Plugin.class.isAssignableFrom(params[0])
+                            && org.bukkit.Location.class.isAssignableFrom(params[1])
+                            && Consumer.class.isAssignableFrom(params[2])
+                            && (params[3] == long.class || params[3] == Long.class)) {
+                        Object scheduled = m.invoke(regionScheduler, plugin, location, consumer, safeDelay);
+                        return new TaskHandle(scheduled);
+                    }
+                }
+                throw new UnsupportedOperationException("No compatible RegionScheduler#runDelayed method found");
+            } catch (Throwable t) {
+                throw new UnsupportedOperationException("Folia detected but failed to schedule delayed at location", t);
+            }
+        }
+        // Non-Folia fallback
+        BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, runnable, safeDelay);
+        return new TaskHandle(task);
+    }
 }

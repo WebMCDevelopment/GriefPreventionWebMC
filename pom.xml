@@ -4,7 +4,7 @@
 
     <groupId>com.griefprevention</groupId>
     <artifactId>GriefPrevention</artifactId>
-    <version>17.0.13</version>
+    <version>17.0.14</version>
 
     <name>GriefPrevention</name>
     <description>The official self-service anti-griefing Bukkit plugin for Minecraft servers since 2011.</description>
@@ -40,6 +40,10 @@
         <repository>
             <id>spigot-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+        </repository>
+        <repository>
+            <id>papermc-repo</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
         <repository>
             <id>jitpack.io</id>
@@ -155,6 +159,14 @@
             <version>1.21.8-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
+        <!-- Paper API for Paper-specific event handlers (optional at runtime) -->
+        <dependency>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>1.21.4-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
         <!-- Annotations for nullity and other behaviors -->
         <dependency>
             <groupId>org.jetbrains</groupId>
@@ -162,6 +174,14 @@
             <version>26.0.2</version>
             <!-- Annotations are not required at runtime, only during compilation. -->
             <scope>provided</scope>
+        </dependency>
+        <!-- Vault API for economy integration (optional) -->
+        <dependency>
+            <groupId>com.github.MilkBowl</groupId>
+            <artifactId>VaultAPI</artifactId>
+            <version>1.7.1</version>
+            <scope>provided</scope>
+            <optional>true</optional>
         </dependency>
         <!-- Tests -->
         <dependency>

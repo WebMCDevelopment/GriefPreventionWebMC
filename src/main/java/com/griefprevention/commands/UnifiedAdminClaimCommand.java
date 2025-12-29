@@ -17,8 +17,7 @@ public class UnifiedAdminClaimCommand extends UnifiedCommandHandler {
         super(plugin, "aclaim");
 
         // Register subcommands
-        registerSubcommand("restore", this::handleRestore, "restorenature", "restorenatureaggressive",
-                "restorenaturefill");
+        registerSubcommand("restore", createRestoreTabExecutor());
         registerSubcommand("ignore", this::handleIgnore);
         registerSubcommand("mode", this::handleMode);
         registerSubcommand("adminlist", this::handleAdminList);
@@ -30,7 +29,14 @@ public class UnifiedAdminClaimCommand extends UnifiedCommandHandler {
         registerSubcommand("transfer", this::handleTransfer);
 
         // Register standalone commands from Alias enum
-        registerStandaloneCommand(Alias.AClaimRestore, this::handleRestore);
+        registerStandaloneCommand(Alias.AClaimRestore, createRestoreTabExecutor());
+        // Legacy standalone commands - redirect to unified restore with appropriate type
+        registerLegacyStandaloneCommand("restorenatureaggressive", "griefprevention.restorenatureaggressive",
+                (sender, args) -> handleRestore(sender, prependArg("aggressive", args)),
+                java.util.Arrays.asList("1", "2", "3", "4", "5", "10"));
+        registerLegacyStandaloneCommand("restorenaturefill", "griefprevention.restorenatureaggressive",
+                (sender, args) -> handleRestore(sender, prependArg("fill", args)),
+                java.util.Arrays.asList("1", "2", "3", "4", "5", "10"));
         registerStandaloneCommand(Alias.AClaimIgnore, this::handleIgnore);
         registerStandaloneCommand(Alias.AClaimMode, this::handleMode);
         registerStandaloneCommand(Alias.AClaimAdminList, this::handleAdminList);
@@ -78,13 +84,86 @@ public class UnifiedAdminClaimCommand extends UnifiedCommandHandler {
     }
 
     private boolean handleRestore(CommandSender sender, String[] args) {
-        // RestoreNature feature is not available in this version
-        if (sender instanceof Player player) {
-            GriefPrevention.sendMessage(player, TextMode.Info, "The restore nature feature is not available in this version.");
-        } else {
-            sender.sendMessage("The restore nature feature is not available in this version.");
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("This command can only be used by players.");
+            return true;
         }
+
+        // Check permission
+        if (!player.hasPermission("griefprevention.restorenature")) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.NoPermissionForCommand);
+            return true;
+        }
+
+        PlayerData playerData = plugin.dataStore.getPlayerData(player.getUniqueId());
+
+        // Check for mode argument
+        if (args.length > 0) {
+            String mode = args[0].toLowerCase();
+            switch (mode) {
+                case "aggressive" -> {
+                    playerData.shovelMode = ShovelMode.RestoreNatureAggressive;
+                    GriefPrevention.sendMessage(player, TextMode.Success, Messages.RestoreNatureAggressiveActivate);
+                }
+                case "fill" -> {
+                    // Check for radius argument
+                    if (args.length > 1) {
+                        try {
+                            playerData.fillRadius = Integer.parseInt(args[1]);
+                        } catch (NumberFormatException e) {
+                            playerData.fillRadius = 2; // default
+                        }
+                    } else {
+                        playerData.fillRadius = 2; // default
+                    }
+                    playerData.shovelMode = ShovelMode.RestoreNatureFill;
+                    GriefPrevention.sendMessage(player, TextMode.Success, Messages.FillModeActive, String.valueOf(playerData.fillRadius));
+                }
+                default -> {
+                    // Default restore nature mode
+                    playerData.shovelMode = ShovelMode.RestoreNature;
+                    GriefPrevention.sendMessage(player, TextMode.Success, Messages.RestoreNatureActivate);
+                }
+            }
+        } else {
+            // Default restore nature mode
+            playerData.shovelMode = ShovelMode.RestoreNature;
+            GriefPrevention.sendMessage(player, TextMode.Success, Messages.RestoreNatureActivate);
+        }
+
         return true;
+    }
+
+    private org.bukkit.command.TabExecutor createRestoreTabExecutor() {
+        return new org.bukkit.command.TabExecutor() {
+            @Override
+            public boolean onCommand(@NotNull CommandSender sender, @NotNull org.bukkit.command.Command command, @NotNull String label, String[] args) {
+                return handleRestore(sender, args);
+            }
+
+            @Override
+            public java.util.List<String> onTabComplete(@NotNull CommandSender sender, @NotNull org.bukkit.command.Command command, @NotNull String label, String[] args) {
+                if (args.length == 1) {
+                    return java.util.Arrays.asList("nature", "aggressive", "fill").stream()
+                            .filter(s -> s.startsWith(args[0].toLowerCase()))
+                            .collect(java.util.stream.Collectors.toList());
+                }
+                // Show radius suggestions for all restore types
+                if (args.length == 2) {
+                    return java.util.Arrays.asList("1", "2", "3", "4", "5", "10").stream()
+                            .filter(s -> s.startsWith(args[1]))
+                            .collect(java.util.stream.Collectors.toList());
+                }
+                return java.util.Collections.emptyList();
+            }
+        };
+    }
+
+    private static String[] prependArg(String first, String[] rest) {
+        String[] result = new String[rest.length + 1];
+        result[0] = first;
+        System.arraycopy(rest, 0, result, 1, rest.length);
+        return result;
     }
 
     private boolean handleIgnore(CommandSender sender, String[] args) {

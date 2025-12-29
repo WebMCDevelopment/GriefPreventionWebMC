@@ -42,7 +42,6 @@ import org.bukkit.event.entity.AreaEffectCloudApplyEvent;
 import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.EntityKnockbackByEntityEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.PotionSplashEvent;
 import org.bukkit.event.vehicle.VehicleDamageEvent;
@@ -118,45 +117,10 @@ public class EntityDamageHandler implements Listener {
         this.handleEntityDamageEvent(new EntityDamageInstance(event), false);
     }
 
-    // Handle wind charge knockback - wind charges deal knockback separately from damage
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
-    public void onEntityKnockbackByEntity(@NotNull EntityKnockbackByEntityEvent event) {
-        // Only handle wind charge knockback on players
-        if (!(event.getEntity() instanceof Player defender))
-            return;
-
-        Entity source = event.getSourceEntity();
-        if (source == null)
-            return;
-
-        // Check if the source is a wind charge
-        String sourceTypeName = source.getType().name();
-        if (!sourceTypeName.contains("WIND_CHARGE"))
-            return;
-
-        // Get the player who threw the wind charge
-        Player attacker = null;
-        if (source instanceof Projectile projectile && projectile.getShooter() instanceof Player shooter) {
-            attacker = shooter;
-        }
-
-        // Allow self-knockback (e.g., for movement tricks)
-        if (attacker == null || attacker == defender)
-            return;
-
-        // Only protect when PVP rules are enabled for this world
-        if (!instance.pvpRulesApply(defender.getWorld()))
-            return;
-
-        // Check if defender is in a PVP-protected claim
-        PlayerData defenderData = dataStore.getPlayerData(defender.getUniqueId());
-        Claim claim = dataStore.getClaimAt(defender.getLocation(), false, defenderData.lastClaim);
-        if (claim != null && instance.claimIsPvPSafeZone(claim)) {
-            defenderData.lastClaim = claim;
-            event.setCancelled(true);
-            GriefPrevention.sendRateLimitedErrorMessage(attacker, Messages.CantFightWhileImmune);
-        }
-    }
+    // Wind charge knockback handling has been moved to separate classes:
+    // - PaperKnockbackHandler: Used on Paper servers (uses non-deprecated Paper event)
+    // - SpigotKnockbackHandler: Used on non-Paper servers (uses Bukkit event)
+    // See GriefPrevention.onEnable() for conditional registration.
 
     private void handleEntityDamageEvent(@NotNull EntityDamageInstance event, boolean sendMessages) {
         // monsters are never protected

@@ -13,6 +13,11 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import org.bukkit.Bukkit;
+import org.bukkit.command.CommandMap;
+import org.bukkit.command.defaults.BukkitCommand;
+
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -71,21 +76,12 @@ public abstract class UnifiedCommandHandler implements TabExecutor {
     }
 
     /**
-     * Register a standalone command from the Alias enum
+     * Register a standalone command from the Alias enum.
+     * This reads the actual standalone names from alias.yml configuration,
+     * allowing users to customize command names dynamically.
      */
     protected void registerStandaloneCommand(@NotNull Alias alias,
             @NotNull BiFunction<CommandSender, String[], Boolean> handler) {
-        String standalone = alias.getStandalone();
-        if (standalone == null || standalone.isEmpty()) {
-            return;
-        }
-
-        PluginCommand pluginCommand = plugin.getCommand(standalone);
-        if (pluginCommand == null) {
-            plugin.getLogger().warning("Failed to find standalone command '" + standalone + "' in plugin.yml");
-            return;
-        }
-
         // Get the subcommand name from the enum
         final String subcommandName = alias.toString().toLowerCase(Locale.ROOT);
         final String finalSubcommandName;
@@ -97,109 +93,221 @@ public abstract class UnifiedCommandHandler implements TabExecutor {
             finalSubcommandName = subcommandName;
         }
 
-        // Create a wrapper that delegates to the subcommand handler
-        TabExecutor wrapper = new TabExecutor() {
+        // Get standalone names from configuration (alias.yml), not from enum
+        CommandAliasConfiguration.Subcommand config = rootCommandConfig != null
+                ? rootCommandConfig.getSubcommand(finalSubcommandName)
+                : null;
+
+        List<String> standaloneNames;
+        if (config != null && !config.getStandalone().isEmpty()) {
+            standaloneNames = config.getStandalone();
+        } else {
+            // Fall back to enum default if no config
+            String enumStandalone = alias.getStandalone();
+            if (enumStandalone == null || enumStandalone.isEmpty()) {
+                return;
+            }
+            standaloneNames = List.of(enumStandalone);
+        }
+
+        // Check if standalone is disabled (empty list in config means disabled)
+        if (standaloneNames.isEmpty()) {
+            plugin.getLogger().info("Standalone for '" + finalSubcommandName + "' is disabled in config");
+            return;
+        }
+
+        // Register each standalone command name
+        for (String standaloneName : standaloneNames) {
+            if (standaloneName == null || standaloneName.isBlank()) continue;
+            registerDynamicStandaloneCommand(standaloneName.trim(), finalSubcommandName, handler, config);
+        }
+    }
+
+    /**
+     * Dynamically register a standalone command using Bukkit's CommandMap.
+     * This allows command names to be configured in alias.yml without being in plugin.yml.
+     */
+    private void registerDynamicStandaloneCommand(@NotNull String commandName,
+            @NotNull String subcommandName,
+            @NotNull BiFunction<CommandSender, String[], Boolean> handler,
+            @Nullable CommandAliasConfiguration.Subcommand config) {
+        
+        // First try to get from plugin.yml
+        PluginCommand pluginCommand = plugin.getCommand(commandName);
+        if (pluginCommand != null) {
+            // Command exists in plugin.yml, just set the executor
+            TabExecutor wrapper = createStandaloneWrapper(handler, subcommandName);
+            pluginCommand.setExecutor(wrapper);
+            pluginCommand.setTabCompleter(wrapper);
+            applyStandaloneMetadata(pluginCommand, config);
+            plugin.getLogger().info("Registered standalone command: " + commandName + " (from plugin.yml)");
+            return;
+        }
+
+        // Command not in plugin.yml - register dynamically using CommandMap
+        try {
+            CommandMap commandMap = getCommandMap();
+            if (commandMap == null) {
+                plugin.getLogger().warning("Failed to get CommandMap for dynamic command registration");
+                return;
+            }
+
+            // Create a dynamic command
+            DynamicStandaloneCommand dynamicCommand = new DynamicStandaloneCommand(
+                    commandName,
+                    config != null ? config.getDescription() : "GriefPrevention command",
+                    config != null ? config.getUsage() : "/" + commandName,
+                    config != null ? config.getPermission() : "griefprevention.claims",
+                    handler,
+                    subcommandName
+            );
+
+            // Register with the command map
+            commandMap.register(plugin.getName().toLowerCase(), dynamicCommand);
+            plugin.getLogger().info("Registered standalone command: " + commandName + " (dynamically)");
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to dynamically register command '" + commandName + "': " + e.getMessage());
+        }
+    }
+
+    private TabExecutor createStandaloneWrapper(@NotNull BiFunction<CommandSender, String[], Boolean> handler,
+            @NotNull String subcommandName) {
+        return new TabExecutor() {
             @Override
             public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label,
                     @NotNull String[] args) {
-                // For standalone commands, pass args directly to the handler without prepending subcommand name
-                // The handler expects the actual command arguments (e.g., player name for /trust)
                 return handler.apply(sender, args);
             }
 
             @Override
             public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
                     @NotNull String alias, @NotNull String[] args) {
-                // For standalone commands, use args directly for tab completion
                 return UnifiedCommandHandler.this.onTabComplete(sender, command, alias, args);
             }
         };
+    }
 
-        pluginCommand.setExecutor(wrapper);
-        pluginCommand.setTabCompleter(wrapper);
+    private void applyStandaloneMetadata(@NotNull PluginCommand pluginCommand,
+            @Nullable CommandAliasConfiguration.Subcommand config) {
+        if (config == null) return;
 
-        // Apply metadata from the alias configuration if available
-        CommandAliasConfiguration.Subcommand config = rootCommandConfig != null
-                ? rootCommandConfig.getSubcommand(finalSubcommandName)
-                : null;
-        if (config != null) {
-            String description = config.getDescription();
-            if (description != null && !description.isBlank()) {
-                pluginCommand.setDescription(description);
-            }
-
-            String permission = config.getPermission();
-            if (permission != null && !permission.isBlank()) {
-                pluginCommand.setPermission(permission);
-            }
+        String description = config.getDescription();
+        if (description != null && !description.isBlank()) {
+            pluginCommand.setDescription(description);
         }
 
-        plugin.getLogger().info("Registered standalone command: " + standalone);
+        String permission = config.getPermission();
+        if (permission != null && !permission.isBlank()) {
+            pluginCommand.setPermission(permission);
+        }
     }
 
     /**
-     * Register a standalone command from the Alias enum with custom tab completion
+     * Register a legacy standalone command that exists in plugin.yml but not in alias system
+     */
+    protected void registerLegacyStandaloneCommand(@NotNull String commandName, @Nullable String permission,
+            @NotNull BiFunction<CommandSender, String[], Boolean> handler) {
+        registerLegacyStandaloneCommand(commandName, permission, handler, Collections.emptyList());
+    }
+
+    /**
+     * Register a legacy standalone command with custom tab completions
+     */
+    protected void registerLegacyStandaloneCommand(@NotNull String commandName, @Nullable String permission,
+            @NotNull BiFunction<CommandSender, String[], Boolean> handler, @NotNull List<String> tabCompletions) {
+        PluginCommand pluginCommand = plugin.getCommand(commandName);
+        if (pluginCommand != null) {
+            TabExecutor wrapper = new TabExecutor() {
+                @Override
+                public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label,
+                        @NotNull String[] args) {
+                    if (permission != null && !sender.hasPermission(permission)) {
+                        sender.sendMessage(org.bukkit.ChatColor.RED + "You don't have permission to use this command.");
+                        return true;
+                    }
+                    return handler.apply(sender, args);
+                }
+
+                @Override
+                public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
+                        @NotNull String alias, @NotNull String[] args) {
+                    if (args.length == 1 && !tabCompletions.isEmpty()) {
+                        return tabCompletions.stream()
+                                .filter(s -> s.toLowerCase().startsWith(args[0].toLowerCase()))
+                                .collect(java.util.stream.Collectors.toList());
+                    }
+                    return Collections.emptyList();
+                }
+            };
+            pluginCommand.setExecutor(wrapper);
+            pluginCommand.setTabCompleter(wrapper);
+            plugin.getLogger().info("Registered legacy standalone command: " + commandName);
+        }
+    }
+
+    private static CommandMap commandMap = null;
+
+    private static @Nullable CommandMap getCommandMap() {
+        if (commandMap != null) return commandMap;
+        try {
+            Field commandMapField = Bukkit.getServer().getClass().getDeclaredField("commandMap");
+            commandMapField.setAccessible(true);
+            commandMap = (CommandMap) commandMapField.get(Bukkit.getServer());
+            return commandMap;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Dynamic command that can be registered at runtime without being in plugin.yml
+     */
+    private class DynamicStandaloneCommand extends BukkitCommand {
+        private final BiFunction<CommandSender, String[], Boolean> handler;
+        private final String subcommandName;
+
+        protected DynamicStandaloneCommand(@NotNull String name, @Nullable String description,
+                @Nullable String usageMessage, @Nullable String permission,
+                @NotNull BiFunction<CommandSender, String[], Boolean> handler,
+                @NotNull String subcommandName) {
+            super(name);
+            this.handler = handler;
+            this.subcommandName = subcommandName;
+            if (description != null) setDescription(description);
+            if (usageMessage != null) setUsage(usageMessage);
+            if (permission != null) setPermission(permission);
+        }
+
+        @Override
+        public boolean execute(@NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String[] args) {
+            if (getPermission() != null && !sender.hasPermission(getPermission())) {
+                sender.sendMessage(ChatColor.RED + "You don't have permission to use this command.");
+                return true;
+            }
+            return handler.apply(sender, args);
+        }
+
+        @Override
+        public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String[] args) {
+            List<String> result = UnifiedCommandHandler.this.onTabComplete(sender, this, alias, args);
+            return result != null ? result : Collections.emptyList();
+        }
+    }
+
+    /**
+     * Register a standalone command from the Alias enum with custom TabExecutor
      */
     protected void registerStandaloneCommand(@NotNull Alias alias, @NotNull TabExecutor tabExecutor) {
-        String standalone = alias.getStandalone();
-        if (standalone == null || standalone.isEmpty()) {
-            return;
+        String standaloneName = alias.getStandalone();
+        if (standaloneName == null || standaloneName.isEmpty()) return;
+
+        PluginCommand pluginCommand = plugin.getCommand(standaloneName);
+        if (pluginCommand != null) {
+            pluginCommand.setExecutor(tabExecutor);
+            pluginCommand.setTabCompleter(tabExecutor);
+            plugin.getLogger().info("Registered standalone command with TabExecutor: " + standaloneName);
         }
-
-        PluginCommand pluginCommand = plugin.getCommand(standalone);
-        if (pluginCommand == null) {
-            plugin.getLogger().warning("Failed to find standalone command '" + standalone + "' in plugin.yml");
-            return;
-        }
-
-        // Get the subcommand name from the enum
-        final String subcommandName = alias.toString().toLowerCase(Locale.ROOT);
-        final String finalSubcommandName;
-        if (subcommandName.startsWith("claim")) {
-            finalSubcommandName = subcommandName.substring(5); // Remove "claim" prefix
-        } else if (subcommandName.startsWith("aclaim")) {
-            finalSubcommandName = subcommandName.substring(6); // Remove "aclaim" prefix
-        } else {
-            finalSubcommandName = subcommandName;
-        }
-
-        // Create a wrapper that delegates to the TabExecutor
-        TabExecutor wrapper = new TabExecutor() {
-            @Override
-            public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label,
-                    @NotNull String[] args) {
-                // For standalone commands, pass args directly to the handler without prepending subcommand name
-                return tabExecutor.onCommand(sender, command, label, args);
-            }
-
-            @Override
-            public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
-                    @NotNull String alias, @NotNull String[] args) {
-                // For standalone commands, use args directly for tab completion
-                return tabExecutor.onTabComplete(sender, command, alias, args);
-            }
-        };
-
-        pluginCommand.setExecutor(wrapper);
-        pluginCommand.setTabCompleter(wrapper);
-
-        // Apply metadata from the alias configuration if available
-        CommandAliasConfiguration.Subcommand config = rootCommandConfig != null
-                ? rootCommandConfig.getSubcommand(finalSubcommandName)
-                : null;
-        if (config != null) {
-            String description = config.getDescription();
-            if (description != null && !description.isBlank()) {
-                pluginCommand.setDescription(description);
-            }
-
-            String permission = config.getPermission();
-            if (permission != null && !permission.isBlank()) {
-                pluginCommand.setPermission(permission);
-            }
-        }
-
-        plugin.getLogger().info("Registered standalone command: " + standalone);
     }
 
     @Override

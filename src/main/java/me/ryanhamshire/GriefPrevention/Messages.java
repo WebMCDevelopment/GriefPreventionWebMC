@@ -249,7 +249,19 @@ public enum Messages
     AClaimHelpPagination("Type /aclaim {0} for the next page.", "0: next page number"),
     CommandNotFound("Unknown subcommand: {0}", "0: subcommand name"),
     CommandNotImplementedYet("This command is not implemented yet."),
-    CommandInvalidMode("Invalid mode. Valid options: 2d, 3d");
+    CommandInvalidMode("Invalid mode. Valid options: 2d, 3d"),
+    RestoreNatureActivate("Ready to restore nature!  Right-click on a block to restore an area.  Use /basicclaims to exit."),
+    RestoreNatureAggressiveActivate("Aggressive restore nature mode activated.  Right-click on a block to restore an area.  Use /basicclaims to exit."),
+    FillModeActive("Fill mode activated with radius {0}.  Right-click on a block to fill in an area.  Use /basicclaims to exit.", "0: fill radius"),
+    EconomyDisabled("Economy features are disabled on this server."),
+    EconomyBuyBlocksConfirmation("Purchased {0} claim blocks for {1}. You now have {2} claim blocks.", "0: blocks purchased, 1: cost, 2: new total"),
+    EconomySellBlocksConfirmation("Sold {0} claim blocks for {1}. You now have {2} claim blocks.", "0: blocks sold, 1: value, 2: remaining"),
+    EconomyNotEnoughMoney("You don't have enough money. Cost: {0}, Your balance: {1}", "0: cost, 1: balance"),
+    EconomyNotEnoughBlocks("You don't have enough claim blocks to sell. Requested: {0}, Available: {1}", "0: requested, 1: available"),
+    EconomyBuyBlocksUsage("Usage: /buyclaimblocks <amount>"),
+    EconomySellBlocksUsage("Usage: /sellclaimblocks <amount>"),
+    EconomyInvalidAmount("Please specify a valid positive number of blocks."),
+    EconomyNoVault("Economy support requires Vault plugin to be installed.");
 
     final @NotNull String defaultValue;
     final @Nullable String notes;

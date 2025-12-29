@@ -481,6 +481,8 @@ public class FlatFileDataStore extends DataStore
                     File orphanFile = new File(claimDataFolderPath + File.separator + child.id + ".yml");
                     if (orphanFile.exists())
                     {
+                        // Save the parent claim BEFORE deleting the orphan file to ensure subdivision data is preserved
+                        this.writeClaimToStorage(parent);
                         orphanFile.delete();
                         GriefPrevention.AddLogEntry("Cleaned up legacy subdivision file: " + orphanFile.getName() + " (now stored in parent claim " + parent.id + ")");
                     }

@@ -125,7 +125,29 @@ public enum Alias {
       usage: "/claim restrictsubclaim"
       description: Toggle whether a subdivision inherits parent permissions.
       """, "restrictsubclaim"),
-      
+
+  ClaimBuyBlocks("""
+      enable: true
+      commands: [buyblocks]
+      standalone: [buyclaimblocks]
+      usage: "/claim buyblocks <amount>"
+      description: Purchase additional claim blocks with server currency.
+      arguments:
+        amount:
+          type: integer
+      """, "buyclaimblocks"),
+
+  ClaimSellBlocks("""
+      enable: true
+      commands: [sellblocks]
+      standalone: [sellclaimblocks]
+      usage: "/claim sellblocks <amount>"
+      description: Sell claim blocks for server currency.
+      arguments:
+        amount:
+          type: integer
+      """, "sellclaimblocks"),
+
   ClaimExplosions("""
       enable: true
       commands: [explosions]
@@ -138,22 +160,6 @@ public enum Alias {
             on: [on]
             off: [off]
       """, "explosions"),
-
-  ClaimBuyBlocks("""
-      enable: true
-      commands: [buyblocks]
-      standalone: [buyclaimblocks]
-      usage: "/claim buyblocks"
-      description: Purchase additional claim blocks.
-      """, "buyblocks"),
-
-  ClaimSellBlocks("""
-      enable: true
-      commands: [sellblocks]
-      standalone: [sellclaimblocks]
-      usage: "/claim sellblocks"
-      description: Sell excess claim blocks for currency.
-      """, "sellblocks"),
 
   ClaimAbandon("""
       enable: true
@@ -195,21 +201,24 @@ public enum Alias {
       arguments:
         page:
           type: integer
-      """, "help"),
+      """, "claimhelp"),
 
   // Subcommands section - aclaim commands
   AClaimRestore("""
       enable: true
       commands: [restore]
-      usage: "/aclaim restore <mode>"
-      description: Restore an area to nature using the specified mode.
+      standalone: [restorenature]
+      usage: "/aclaim restore [type] [radius]"
+      description: Restore an area to nature. Types: nature (default), aggressive, fill.
       arguments:
-        mode:
+        type:
           options:
-            default: [default]
+            nature: [nature]
             aggressive: [aggressive]
             fill: [fill]
-      """, "restore"),
+        radius:
+          type: integer
+      """, "restorenature"),
 
   AClaimIgnore("""
       enable: true
@@ -232,7 +241,7 @@ public enum Alias {
   AClaimAdminList("""
       enable: true
       commands: [adminlist]
-      usage: "/aclaim adminlist"
+      usage: "/adminlist"
       description: List administrative claims on the current server.
       """, "adminlist"),
 
@@ -486,7 +495,8 @@ public enum Alias {
             restore:
               enable: true
               commands: [restore]
-              usage: "/aclaim restore <mode>"
+              standalone: [restorenature]
+              usage: "/aclaim restore [mode]"
               description: Restore an area to nature using the specified mode.
               arguments:
                 mode:
@@ -494,6 +504,23 @@ public enum Alias {
                     default: [default]
                     aggressive: [aggressive]
                     fill: [fill]
+
+            restoreaggressive:
+              enable: true
+              commands: [restoreaggressive]
+              standalone: [restorenatureaggressive]
+              usage: "/aclaim restoreaggressive"
+              description: Switches the shovel tool to aggressive restoration mode.
+
+            restorefill:
+              enable: true
+              commands: [restorefill]
+              standalone: [restorenaturefill]
+              usage: "/aclaim restorefill [radius]"
+              description: Switches the shovel tool to fill mode.
+              arguments:
+                radius:
+                  type: integer
 
             ignore:
               enable: true

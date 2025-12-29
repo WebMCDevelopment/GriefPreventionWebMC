@@ -72,6 +72,7 @@ public class GlowingVisualization extends FakeBlockVisualization {
             case DIAMOND_BLOCK -> org.bukkit.Color.AQUA;
             case REDSTONE_ORE, NETHERRACK -> org.bukkit.Color.RED;
             case PUMPKIN -> org.bukkit.Color.ORANGE;
+            case LIME_GLAZED_TERRACOTTA, EMERALD_BLOCK -> org.bukkit.Color.LIME;
             default -> org.bukkit.Color.YELLOW;
         };
     }

@@ -14,6 +14,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.Lightable;
 import com.griefprevention.visualization.impl.SnapOverrideHelper.SnapOverride;
 import org.bukkit.entity.Player;
@@ -80,6 +81,11 @@ public class FakeBlockVisualization extends BlockBoundaryVisualization
                 ((Lightable) fakeData).setLit(true);
                 yield createElementAdder(fakeData, type, false);
             }
+            case RESTORE_NATURE -> {
+                // Special handling - corners need directional facing, handled in draw()
+                // Return a dummy adder that will be overridden
+                yield createElementAdder(Material.LIME_GLAZED_TERRACOTTA.createBlockData(), type, false);
+            }
             default -> createElementAdder(Material.GLOWSTONE.createBlockData(), type, false);
         };
     }
@@ -98,6 +104,7 @@ public class FakeBlockVisualization extends BlockBoundaryVisualization
             case SUBDIVISION_3D -> createElementAdder(Material.WHITE_WOOL.createBlockData(), type, true);
             case INITIALIZE_ZONE -> createElementAdder(Material.DIAMOND_BLOCK.createBlockData(), type, false);
             case CONFLICT_ZONE -> createElementAdder(Material.NETHERRACK.createBlockData(), type, false);
+            case RESTORE_NATURE -> createElementAdder(Material.EMERALD_BLOCK.createBlockData(), type, false);
             default -> createElementAdder(Material.GOLD_BLOCK.createBlockData(), type, false);
         };
     }
@@ -119,11 +126,80 @@ public class FakeBlockVisualization extends BlockBoundaryVisualization
         // Use 3D-specific drawing for 3D subdivisions, otherwise use standard 2D drawing
         if (boundary.type() == VisualizationType.SUBDIVISION_3D) {
             drawRespectingYBoundaries(player, boundary);
+        } else if (boundary.type() == VisualizationType.RESTORE_NATURE) {
+            drawRestoreNature(player, boundary);
         } else {
             // Always use the original visualization position, not the player's current position
             // This prevents side markers from moving with the player
             super.draw(player, boundary);
         }
+    }
+
+    /**
+     * Draw restore nature visualization with directional lime glazed terracotta corners.
+     * Corner directions:
+     * - South East (maxX, maxZ): facing south
+     * - South West (minX, maxZ): facing west
+     * - North West (minX, minZ): facing north
+     * - North East (maxX, minZ): facing east
+     */
+    private void drawRestoreNature(@NotNull Player player, @NotNull Boundary boundary)
+    {
+        BoundingBox area = boundary.bounds();
+        VisualizationType type = boundary.type();
+
+        // Create display zone
+        final int displayZoneRadius = 75;
+        int baseX = this.visualizeFrom.x();
+        int baseZ = this.visualizeFrom.z();
+        BoundingBox displayZoneArea = new BoundingBox(
+                new IntVector(baseX - displayZoneRadius, world.getMinHeight(), baseZ - displayZoneRadius),
+                new IntVector(baseX + displayZoneRadius, world.getMaxHeight(), baseZ + displayZoneRadius));
+        BoundingBox displayZone = displayZoneArea.intersection(area);
+        if (displayZone == null) return;
+
+        Consumer<@NotNull IntVector> addSide = addSideElements(boundary);
+
+        // Add stub blocks (emerald) next to corners
+        if (area.getLength() > 2)
+        {
+            addDisplayed(displayZone, new IntVector(area.getMinX() + 1, height, area.getMaxZ()), addSide);
+            addDisplayed(displayZone, new IntVector(area.getMinX() + 1, height, area.getMinZ()), addSide);
+            addDisplayed(displayZone, new IntVector(area.getMaxX() - 1, height, area.getMaxZ()), addSide);
+            addDisplayed(displayZone, new IntVector(area.getMaxX() - 1, height, area.getMinZ()), addSide);
+        }
+        if (area.getWidth() > 2)
+        {
+            addDisplayed(displayZone, new IntVector(area.getMinX(), height, area.getMinZ() + 1), addSide);
+            addDisplayed(displayZone, new IntVector(area.getMaxX(), height, area.getMinZ() + 1), addSide);
+            addDisplayed(displayZone, new IntVector(area.getMinX(), height, area.getMaxZ() - 1), addSide);
+            addDisplayed(displayZone, new IntVector(area.getMaxX(), height, area.getMaxZ() - 1), addSide);
+        }
+
+        // Add corners with directional lime glazed terracotta
+        // South West Corner (minX, maxZ): facing west
+        addDirectionalCorner(displayZone, new IntVector(area.getMinX(), height, area.getMaxZ()), BlockFace.WEST, type);
+        // South East Corner (maxX, maxZ): facing south
+        addDirectionalCorner(displayZone, new IntVector(area.getMaxX(), height, area.getMaxZ()), BlockFace.SOUTH, type);
+        // North West Corner (minX, minZ): facing north
+        addDirectionalCorner(displayZone, new IntVector(area.getMinX(), height, area.getMinZ()), BlockFace.NORTH, type);
+        // North East Corner (maxX, minZ): facing east
+        addDirectionalCorner(displayZone, new IntVector(area.getMaxX(), height, area.getMinZ()), BlockFace.EAST, type);
+    }
+
+    /**
+     * Add a directional lime glazed terracotta corner block.
+     */
+    private void addDirectionalCorner(@NotNull BoundingBox displayZone, @NotNull IntVector coordinate,
+            @NotNull BlockFace facing, @NotNull VisualizationType type)
+    {
+        if (!isAccessible(displayZone, coordinate)) return;
+
+        BlockData fakeData = Material.LIME_GLAZED_TERRACOTTA.createBlockData();
+        if (fakeData instanceof Directional directional) {
+            directional.setFacing(facing);
+        }
+        createElementAdder(fakeData, type, false).accept(coordinate);
     }
 
     /**
