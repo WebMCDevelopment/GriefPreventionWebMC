@@ -170,6 +170,12 @@ public class UnifiedAdminClaimCommand extends UnifiedCommandHandler {
         if (!(sender instanceof Player player))
             return false;
 
+        // Permission check - requires griefprevention.ignoreclaims
+        if (!player.hasPermission("griefprevention.ignoreclaims")) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.NoPermissionForCommand);
+            return true;
+        }
+
         PlayerData playerData = plugin.dataStore.getPlayerData(player.getUniqueId());
         playerData.ignoreClaims = !playerData.ignoreClaims;
 

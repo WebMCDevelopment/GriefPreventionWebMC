@@ -107,7 +107,7 @@ public enum Alias {
   ClaimMode("""
       enable: true
       commands: [mode]
-      standalone: [claimmode]
+      standalone: [basicclaims]
       usage: "/claim mode <basic|2d|3d>"
       description: Change your golden shovel claim mode.
       arguments:
@@ -116,7 +116,7 @@ public enum Alias {
             basic: [basic]
             2d: [2d]
             3d: [3d]
-      """, "mode"),
+      """, "basicclaims"),
 
   ClaimRestrictSubclaim("""
       enable: true
@@ -223,27 +223,30 @@ public enum Alias {
   AClaimIgnore("""
       enable: true
       commands: [ignore]
+      standalone: [ignoreclaims]
       usage: "/aclaim ignore"
       description: Toggle ignoring nearby claims.
-      """, "ignore"),
+      """, "ignoreclaims"),
 
   AClaimMode("""
       enable: true
       commands: [mode]
+      standalone: [adminclaims]
       usage: "/aclaim mode <admin>"
       description: Switch your shovel to admin-claim mode.
       arguments:
         mode:
           options:
             admin: [admin]
-      """, "mode"),
+      """, "adminclaims"),
 
   AClaimAdminList("""
       enable: true
       commands: [adminlist]
+      standalone: [adminclaimslist]
       usage: "/adminlist"
       description: List administrative claims on the current server.
-      """, "adminlist"),
+      """, "adminclaimslist"),
 
   AClaimList("""
       enable: true
