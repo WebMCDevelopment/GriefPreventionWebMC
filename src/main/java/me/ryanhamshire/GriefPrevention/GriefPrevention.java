@@ -535,9 +535,80 @@ public class GriefPrevention extends JavaPlugin {
 
     public void reloadCommandAliases() {
         GriefPrevention.AddLogEntry("Reloading command aliases...");
+        
+        // Capture commands before reload for comparison
+        java.util.Set<String> commandsBefore = com.griefprevention.commands.UnifiedCommandHandler.getRegisteredDynamicCommandsSnapshot();
+        
+        // Unregister old dynamic commands before re-registering
+        com.griefprevention.commands.UnifiedCommandHandler.unregisterAllDynamicCommands(this);
         loadCommandAliases();
         setUpCommands();
+        
+        // Capture commands after reload
+        java.util.Set<String> commandsAfter = com.griefprevention.commands.UnifiedCommandHandler.getRegisteredDynamicCommandsSnapshot();
+        
+        // Check if command registrations changed
+        boolean commandsChanged = !commandsBefore.equals(commandsAfter);
+        if (commandsChanged) {
+            GriefPrevention.AddLogEntry("Command registrations changed, refreshing command map for online players...");
+            refreshCommandMapForAllPlayers();
+        }
+        
         GriefPrevention.AddLogEntry("Command aliases reloaded successfully.");
+    }
+    
+    /**
+     * Refresh the Bukkit command map for all online players by toggling their gamemode.
+     * This forces the client to re-sync available commands.
+     * Safely handles players who may disconnect during the process.
+     */
+    private void refreshCommandMapForAllPlayers() {
+        @SuppressWarnings("unchecked")
+        java.util.Collection<Player> onlinePlayers = (java.util.Collection<Player>) getServer().getOnlinePlayers();
+        
+        if (onlinePlayers.isEmpty()) {
+            return;
+        }
+        
+        // Store original gamemodes for each player
+        java.util.Map<java.util.UUID, GameMode> originalGamemodes = new java.util.HashMap<>();
+        for (Player player : onlinePlayers) {
+            if (player.isOnline()) {
+                originalGamemodes.put(player.getUniqueId(), player.getGameMode());
+            }
+        }
+        
+        // Toggle gamemode for each player (switch to a different mode momentarily)
+        for (Player player : onlinePlayers) {
+            if (!player.isOnline()) continue;
+            
+            GameMode original = originalGamemodes.get(player.getUniqueId());
+            if (original == null) continue;
+            
+            // Pick a temporary gamemode different from current
+            GameMode tempMode = (original == GameMode.CREATIVE) ? GameMode.SURVIVAL : GameMode.CREATIVE;
+            
+            try {
+                player.setGameMode(tempMode);
+            } catch (Exception e) {
+                getLogger().warning("Failed to toggle gamemode for " + player.getName() + ": " + e.getMessage());
+            }
+        }
+        
+        // Schedule restoration of original gamemodes after 1 tick
+        SchedulerUtil.runLaterGlobal(this, () -> {
+            for (java.util.Map.Entry<java.util.UUID, GameMode> entry : originalGamemodes.entrySet()) {
+                Player player = getServer().getPlayer(entry.getKey());
+                if (player != null && player.isOnline()) {
+                    try {
+                        player.setGameMode(entry.getValue());
+                    } catch (Exception e) {
+                        getLogger().warning("Failed to restore gamemode for " + player.getName() + ": " + e.getMessage());
+                    }
+                }
+            }
+            GriefPrevention.AddLogEntry("Command map refresh complete for " + originalGamemodes.size() + " player(s).");
+        }, 1L);
     }
 
     private void loadConfig() {

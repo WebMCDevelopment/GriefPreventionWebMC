@@ -27,6 +27,7 @@ public class UnifiedAdminClaimCommand extends UnifiedCommandHandler {
         registerSubcommand("delete", this::handleDelete, "deleteclaim", "deleteallclaims", "deleteclaimsinworld",
                 "deleteuserclaimsinworld", "deletealladminclaims");
         registerSubcommand("transfer", this::handleTransfer);
+        registerSubcommand("help", this::handleHelp);
 
         // Register standalone commands from Alias enum
         registerStandaloneCommand(Alias.AClaimRestore, createRestoreTabExecutor());
@@ -45,6 +46,7 @@ public class UnifiedAdminClaimCommand extends UnifiedCommandHandler {
         registerStandaloneCommand(Alias.AClaimBlocks, this::handleBlocks);
         registerStandaloneCommand(Alias.AClaimDelete, this::handleDelete);
         registerStandaloneCommand(Alias.AClaimTransfer, this::handleTransfer);
+        registerStandaloneCommand(Alias.AClaimHelp, this::handleHelp);
     }
 
     @Override
@@ -247,18 +249,24 @@ public class UnifiedAdminClaimCommand extends UnifiedCommandHandler {
     }
 
     private boolean handleBlocks(CommandSender sender, String[] args) {
-        // Usage: /aclaim blocks <adjust|set> <player> <amount>
-        // or: /aclaim blocks <adjust> [permission] <amount>
+        // Usage: /aclaim blocks <add|set> <player> <amount>
+        // or: /aclaim blocks <add> [permission] <amount>
         if (args.length < 3) {
             if (sender instanceof Player player) {
-                GriefPrevention.sendMessage(player, TextMode.Info, "Usage: /aclaim blocks <adjust|set> <player> <amount>");
+                GriefPrevention.sendMessage(player, TextMode.Info, "Usage: /aclaim blocks <add|set> <player> <amount>");
             } else {
-                sender.sendMessage("Usage: /aclaim blocks <adjust|set> <player> <amount>");
+                sender.sendMessage("Usage: /aclaim blocks <add|set> <player> <amount>");
             }
             return true;
         }
 
-        String operation = args[0].toLowerCase();
+        // Resolve operation alias to canonical name using config
+        String inputOperation = args[0].toLowerCase();
+        String operation = resolveOptionAlias("blocks", "action", inputOperation);
+        if (operation == null) {
+            operation = inputOperation; // Fallback to input if resolution fails
+        }
+        
         String target = args[1];
         int amount;
 
@@ -273,7 +281,7 @@ public class UnifiedAdminClaimCommand extends UnifiedCommandHandler {
             return true;
         }
 
-        if (operation.equals("adjust")) {
+        if (operation.equals("add")) {
             // Check if target is a permission group
             if (target.startsWith("[") && target.endsWith("]")) {
                 String permissionIdentifier = target.substring(1, target.length() - 1);
@@ -331,9 +339,9 @@ public class UnifiedAdminClaimCommand extends UnifiedCommandHandler {
             }
         } else {
             if (sender instanceof Player player) {
-                GriefPrevention.sendMessage(player, TextMode.Err, "Unknown operation: " + operation + ". Use 'adjust' or 'set'.");
+                GriefPrevention.sendMessage(player, TextMode.Err, "Unknown operation: " + operation + ". Use 'add' or 'set'.");
             } else {
-                sender.sendMessage("Unknown operation: " + operation + ". Use 'adjust' or 'set'.");
+                sender.sendMessage("Unknown operation: " + operation + ". Use 'add' or 'set'.");
             }
         }
 
@@ -811,5 +819,10 @@ public class UnifiedAdminClaimCommand extends UnifiedCommandHandler {
             long daysExpired = Math.abs(daysUntilExpiry);
             return "§cExpired " + daysExpired + " day" + (daysExpired == 1 ? "" : "s") + " ago";
         }
+    }
+
+    private boolean handleHelp(CommandSender sender, String[] args) {
+        sendHelpMessage(sender, args);
+        return true;
     }
 }

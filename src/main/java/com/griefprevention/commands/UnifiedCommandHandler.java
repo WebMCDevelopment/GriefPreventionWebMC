@@ -38,10 +38,15 @@ public abstract class UnifiedCommandHandler implements TabExecutor {
     protected final Map<String, Object> subcommands = new HashMap<>();
     protected final Map<String, List<String>> subcommandAliases = new HashMap<>();
     protected final Map<String, String> aliasToCanonical = new HashMap<>();
+    protected final Set<String> tabCompletionSuggestions = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
     protected final Map<String, CommandAliasConfiguration.Subcommand> subcommandConfigs = new HashMap<>();
     protected final String canonicalCommand;
     protected final CommandAliasConfiguration.RootCommand rootCommandConfig;
     protected final boolean rootCommandEnabled;
+    
+    // Track dynamically registered commands for cleanup on reload
+    private static final List<String> registeredDynamicCommands = new ArrayList<>();
+    private static final Object registrationLock = new Object();
 
     protected UnifiedCommandHandler(@NotNull GriefPrevention plugin, String command) {
         this.plugin = plugin;
@@ -145,29 +150,52 @@ public abstract class UnifiedCommandHandler implements TabExecutor {
         }
 
         // Command not in plugin.yml - register dynamically using CommandMap
-        try {
-            CommandMap commandMap = getCommandMap();
-            if (commandMap == null) {
-                plugin.getLogger().warning("Failed to get CommandMap for dynamic command registration");
-                return;
+        synchronized (registrationLock) {
+            try {
+                CommandMap map = getCommandMap();
+                if (map == null) {
+                    plugin.getLogger().warning("Failed to get CommandMap for dynamic command registration");
+                    return;
+                }
+
+                // Create a dynamic command
+                DynamicStandaloneCommand dynamicCommand = new DynamicStandaloneCommand(
+                        commandName,
+                        config != null ? config.getDescription() : "GriefPrevention command",
+                        config != null ? config.getUsage() : "/" + commandName,
+                        config != null ? config.getPermission() : "griefprevention.claims",
+                        handler,
+                        subcommandName
+                );
+
+                // Force-register by removing any existing command with this name first
+                try {
+                    Field knownCommandsField = map.getClass().getSuperclass().getDeclaredField("knownCommands");
+                    knownCommandsField.setAccessible(true);
+                    @SuppressWarnings("unchecked")
+                    Map<String, Command> knownCommands = (Map<String, Command>) knownCommandsField.get(map);
+                    
+                    // Remove existing command if present (allows override)
+                    String lowerName = commandName.toLowerCase();
+                    knownCommands.remove(lowerName);
+                    
+                    // Register our command
+                    knownCommands.put(lowerName, dynamicCommand);
+                    knownCommands.put(plugin.getName().toLowerCase() + ":" + lowerName, dynamicCommand);
+                    
+                } catch (Exception e) {
+                    // Fallback to normal registration if reflection fails
+                    map.register(plugin.getName().toLowerCase(), dynamicCommand);
+                }
+                
+                // Track for cleanup on reload
+                registeredDynamicCommands.add(commandName);
+                
+                plugin.getLogger().info("Registered standalone command: " + commandName + " (dynamically)");
+
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to dynamically register command '" + commandName + "': " + e.getMessage());
             }
-
-            // Create a dynamic command
-            DynamicStandaloneCommand dynamicCommand = new DynamicStandaloneCommand(
-                    commandName,
-                    config != null ? config.getDescription() : "GriefPrevention command",
-                    config != null ? config.getUsage() : "/" + commandName,
-                    config != null ? config.getPermission() : "griefprevention.claims",
-                    handler,
-                    subcommandName
-            );
-
-            // Register with the command map
-            commandMap.register(plugin.getName().toLowerCase(), dynamicCommand);
-            plugin.getLogger().info("Registered standalone command: " + commandName + " (dynamically)");
-
-        } catch (Exception e) {
-            plugin.getLogger().warning("Failed to dynamically register command '" + commandName + "': " + e.getMessage());
         }
     }
 
@@ -259,6 +287,49 @@ public abstract class UnifiedCommandHandler implements TabExecutor {
             return null;
         }
     }
+    
+    /**
+     * Get a snapshot of currently registered dynamic command names.
+     * Used to detect command registration changes during reload.
+     */
+    public static Set<String> getRegisteredDynamicCommandsSnapshot() {
+        synchronized (registrationLock) {
+            return new java.util.HashSet<>(registeredDynamicCommands);
+        }
+    }
+
+    /**
+     * Unregister all dynamically registered commands.
+     * Should be called before reload to clean up old commands.
+     */
+    public static void unregisterAllDynamicCommands(GriefPrevention plugin) {
+        synchronized (registrationLock) {
+            CommandMap map = getCommandMap();
+            if (map == null) {
+                plugin.getLogger().warning("Could not get CommandMap for command unregistration");
+                return;
+            }
+            
+            try {
+                // Get the knownCommands map from SimpleCommandMap
+                Field knownCommandsField = map.getClass().getSuperclass().getDeclaredField("knownCommands");
+                knownCommandsField.setAccessible(true);
+                @SuppressWarnings("unchecked")
+                Map<String, Command> knownCommands = (Map<String, Command>) knownCommandsField.get(map);
+                
+                for (String cmdName : registeredDynamicCommands) {
+                    // Remove both the plain name and the prefixed version
+                    knownCommands.remove(cmdName.toLowerCase());
+                    knownCommands.remove(plugin.getName().toLowerCase() + ":" + cmdName.toLowerCase());
+                    plugin.getLogger().info("Unregistered dynamic command: " + cmdName);
+                }
+                
+                registeredDynamicCommands.clear();
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to unregister dynamic commands: " + e.getMessage());
+            }
+        }
+    }
 
     /**
      * Dynamic command that can be registered at runtime without being in plugin.yml
@@ -323,16 +394,6 @@ public abstract class UnifiedCommandHandler implements TabExecutor {
         if (args.length == 0) {
             handleDefault(sender);
             return true;
-        }
-        if (args.length > 0) {
-            try {
-                // If first argument is a number, it's a page number for help
-                Integer.parseInt(args[0]);
-                sendHelpMessage(sender, args);
-                return true;
-            } catch (NumberFormatException e) {
-                // Not a page number, continue with normal command handling
-            }
         }
 
         String providedSubcommand = args[0];
@@ -401,10 +462,23 @@ public abstract class UnifiedCommandHandler implements TabExecutor {
         subcommands.put(canonical, handler);
         subcommandConfigs.put(canonical, config);
 
-        // Add the canonical name to the alias map for tab completion
+        // Always map canonical to itself for execution
         aliasToCanonical.put(canonical, canonical);
 
-        // Register aliases
+        // Register aliases from config (e.g., commands: [list2] means "list2" maps to canonical "list")
+        // If config aliases exist, use those for tab completion; otherwise use canonical name
+        if (config != null && !config.getCommands().isEmpty()) {
+            for (String configAlias : config.getCommands()) {
+                String lowerAlias = configAlias.toLowerCase(Locale.ROOT).trim();
+                aliasToCanonical.put(lowerAlias, canonical);
+                tabCompletionSuggestions.add(lowerAlias);
+            }
+        } else {
+            // No config aliases, use canonical name for tab completion
+            tabCompletionSuggestions.add(canonical);
+        }
+
+        // Register default aliases (for execution, not tab completion by default)
         for (String alias : defaultAliases) {
             registerAlias(canonical, alias);
         }
@@ -426,10 +500,23 @@ public abstract class UnifiedCommandHandler implements TabExecutor {
         subcommands.put(canonical, tabExecutor);
         subcommandConfigs.put(canonical, config);
 
-        // Add the canonical name to the alias map for tab completion
+        // Always map canonical to itself for execution
         aliasToCanonical.put(canonical, canonical);
 
-        // Register aliases
+        // Register aliases from config (e.g., commands: [list2] means "list2" maps to canonical "list")
+        // If config aliases exist, use those for tab completion; otherwise use canonical name
+        if (config != null && !config.getCommands().isEmpty()) {
+            for (String configAlias : config.getCommands()) {
+                String lowerAlias = configAlias.toLowerCase(Locale.ROOT).trim();
+                aliasToCanonical.put(lowerAlias, canonical);
+                tabCompletionSuggestions.add(lowerAlias);
+            }
+        } else {
+            // No config aliases, use canonical name for tab completion
+            tabCompletionSuggestions.add(canonical);
+        }
+
+        // Register default aliases (for execution, not tab completion by default)
         for (String alias : defaultAliases) {
             registerAlias(canonical, alias);
         }
@@ -466,12 +553,10 @@ public abstract class UnifiedCommandHandler implements TabExecutor {
             @NotNull String alias, @NotNull String[] args) {
         if (args.length == 1) {
             // Suggest subcommands that start with the partial input
-            // We're still completing the subcommand name itself, not its arguments
+            // Use tabCompletionSuggestions which contains only the configured aliases
             String prefix = args[0].toLowerCase(Locale.ROOT);
-            Set<String> suggestions = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-            suggestions.addAll(aliasToCanonical.keySet());
-            return suggestions.stream()
-                    .filter(name -> name.startsWith(prefix))
+            return tabCompletionSuggestions.stream()
+                    .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(prefix))
                     .collect(java.util.stream.Collectors.toList());
         } else if (args.length >= 2) {
             // User has typed a space after the subcommand, now complete arguments
@@ -763,5 +848,26 @@ public abstract class UnifiedCommandHandler implements TabExecutor {
         return suggestions.stream()
                 .filter(suggestion -> suggestion.toLowerCase(Locale.ROOT).startsWith(lowerPrefix))
                 .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * Resolve an option alias to its canonical name based on the subcommand configuration.
+     * Uses the argumentAliases map which stores alias -> canonical mappings.
+     *
+     * @param subcommandName The subcommand name (e.g., "blocks")
+     * @param argumentName   The argument name (unused, kept for API compatibility)
+     * @param inputValue     The input value to resolve (e.g., "adjust")
+     * @return The canonical option name, or the input value if no alias found
+     */
+    protected @NotNull String resolveOptionAlias(@NotNull String subcommandName, @NotNull String argumentName,
+            @NotNull String inputValue) {
+        CommandAliasConfiguration.Subcommand config = subcommandConfigs.get(subcommandName.toLowerCase(Locale.ROOT));
+        if (config == null) {
+            return inputValue;
+        }
+
+        // Use the translate method which uses argumentAliases to resolve aliases
+        String[] translated = config.translate(new String[] { inputValue });
+        return translated.length > 0 ? translated[0] : inputValue;
     }
 }

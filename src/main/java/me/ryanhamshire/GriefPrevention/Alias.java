@@ -32,7 +32,6 @@ public enum Alias {
       commands: [claim]
       description: Command to manage your claim(s)
       permission: griefprevention.claims
-      use-as-help-cmd: false
       """, "claim"),
 
   AClaimCommand("""
@@ -40,20 +39,19 @@ public enum Alias {
       commands: [aclaim]
       description: Command to manage administrative claims
       permission: griefprevention.adminclaims
-      use-as-help-cmd: false
       """, "aclaim"),
 
   // Subcommands section - claim commands
-  ClaimProtect("""
+  ClaimCreate("""
       enable: true
-      commands: [protect]
-      standalone: [protect]
-      usage: "/claim protect [radius]"
+      commands: [create]
+      standalone: [createclaim]
+      usage: "/claim create [radius]"
       description: Create or expand a claim centered on you.
       arguments:
         radius:
           type: integer
-      """, "protect"),
+      """, "createclaim"),
 
   ClaimTrust("""
       enable: true
@@ -261,32 +259,35 @@ public enum Alias {
   AClaimCheckExpiry("""
       enable: true
       commands: [checkexpiry]
+      standalone: [claimcheckexpiry]
       usage: "/aclaim checkexpiry <player>"
       description: View claim expiration details for a player.
       arguments:
         player:
           type: player
-      """, "checkexpiry"),
+      """, "claimcheckexpiry"),
 
   AClaimBlocks("""
       enable: true
       commands: [blocks]
+      standalone: [adjustbonusclaimblocks]
       usage: "/aclaim blocks <add|set> <player> [amount]"
       description: Adjust a player's claim block balance.
       arguments:
         action:
           options:
-            add: [add]
+            add: [add, adjust]
             set: [set]
         player:
           type: player
         amount:
           type: integer
-      """, "blocks"),
+      """, "adjustbonusclaimblocks"),
 
   AClaimDelete("""
       enable: true
       commands: [delete]
+      standalone: [deleteclaim]
       usage: "/aclaim delete <player|world|all>"
       description: Delete claims owned by a player or within a world.
       arguments:
@@ -295,17 +296,29 @@ public enum Alias {
             player: [player]
             world: [world]
             all: [all]
-      """, "delete"),
+      """, "deleteclaim"),
 
   AClaimTransfer("""
       enable: true
       commands: [transfer]
+      standalone: [transferclaim]
       usage: "/aclaim transfer <player>"
       description: Transfer the claim you are standing in to another player.
       arguments:
         player:
           type: player
-      """, "transfer"),
+      """, "transferclaim"),
+
+  AClaimHelp("""
+      enable: true
+      commands: [help]
+      standalone: [aclaimhelp]
+      usage: "/aclaim help [page]"
+      description: View a list of all available admin claim subcommands.
+      arguments:
+        page:
+          type: integer
+      """, "aclaimhelp"),
 
   // Empty subcommands sections (for backwards compatibility)
   ClaimSubcommands(""),
@@ -343,22 +356,20 @@ public enum Alias {
             commands: [claim]
             description: Command to manage your claim(s)
             permission: griefprevention.claims
-            use-as-help-cmd: false
 
           aclaim:
             enable: true
             commands: [aclaim]
             description: Command to manage administrative claims
             permission: griefprevention.adminclaims
-            use-as-help-cmd: false
 
         subcommands:
           claim:
-            protect:
+            create:
               enable: true
-              commands: [protect]
-              standalone: [protect]
-              usage: "/claim protect [radius]"
+              commands: [create]
+              standalone: [createclaim]
+              usage: "/claim create [radius]"
               description: Create or expand a claim centered on you.
               arguments:
                 radius:
@@ -528,12 +539,14 @@ public enum Alias {
             ignore:
               enable: true
               commands: [ignore]
+              standalone: [ignoreclaims]
               usage: "/aclaim ignore"
               description: Toggle ignoring nearby claims.
 
             mode:
               enable: true
               commands: [mode]
+              standalone: [adminclaims]
               usage: "/aclaim mode <admin>"
               description: Switch your shovel to admin-claim mode.
               arguments:
@@ -544,21 +557,14 @@ public enum Alias {
             adminlist:
               enable: true
               commands: [adminlist]
-              usage: "/adminlist"
+              standalone: [adminclaimslist]
+              usage: "/aclaim adminlist"
               description: List administrative claims on the current server.
-
-            list:
-              enable: true
-              commands: [list]
-              usage: "/aclaim list [player]"
-              description: Show claims owned by a player (including admin claims).
-              arguments:
-                player:
-                  type: player
 
             checkexpiry:
               enable: true
               commands: [checkexpiry]
+              standalone: [claimcheckexpiry]
               usage: "/aclaim checkexpiry <player>"
               description: View claim expiration details for a player.
               arguments:
@@ -568,12 +574,13 @@ public enum Alias {
             blocks:
               enable: true
               commands: [blocks]
+              standalone: [adjustbonusclaimblocks]
               usage: "/aclaim blocks <add|set> <player> [amount]"
               description: Adjust a player's claim block balance.
               arguments:
                 action:
                   options:
-                    add: [add]
+                    add: [add, adjust]
                     set: [set]
                 player:
                   type: player
@@ -583,6 +590,7 @@ public enum Alias {
             delete:
               enable: true
               commands: [delete]
+              standalone: [deleteclaim]
               usage: "/aclaim delete <player|world|all>"
               description: Delete claims owned by a player or within a world.
               arguments:
@@ -595,11 +603,22 @@ public enum Alias {
             transfer:
               enable: true
               commands: [transfer]
+              standalone: [transferclaim]
               usage: "/aclaim transfer <player>"
               description: Transfer the claim you are standing in to another player.
               arguments:
                 player:
                   type: player
+
+            help:
+              enable: true
+              commands: [help]
+              standalone: [aclaimhelp]
+              usage: "/aclaim help [page]"
+              description: View a list of all available admin claim subcommands.
+              arguments:
+                page:
+                  type: integer
         """;
   }
 

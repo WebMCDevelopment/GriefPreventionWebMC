@@ -24,7 +24,7 @@ public class UnifiedClaimCommand extends UnifiedCommandHandler {
         super(plugin, "claim");
 
         // Register subcommands
-        registerSubcommand("protect", this::handleProtect);
+        registerSubcommand("create", this::handleCreate);
         registerSubcommand("trust", this::handleTrust, "accesstrust", "containertrust", "permissiontrust");
         registerSubcommand("untrust", this::handleUntrust);
         registerSubcommand("trustlist", this::handleTrustList);
@@ -40,7 +40,7 @@ public class UnifiedClaimCommand extends UnifiedCommandHandler {
         registerSubcommand("help", this::handleHelp);
 
         // Register standalone commands from Alias enum
-        registerStandaloneCommand(Alias.ClaimProtect, this::handleProtect);
+        registerStandaloneCommand(Alias.ClaimCreate, this::handleCreate);
         registerStandaloneCommand(Alias.ClaimTrust, this::handleTrust);
         registerStandaloneCommand(Alias.ClaimUntrust, this::handleUntrust);
         registerStandaloneCommand(Alias.ClaimTrustlist, this::handleTrustList);
@@ -71,7 +71,7 @@ public class UnifiedClaimCommand extends UnifiedCommandHandler {
         }
 
         // Default behavior: create a claim
-        handleProtect(sender, new String[0]);
+        handleCreate(sender, new String[0]);
     }
 
     @Override
@@ -84,7 +84,7 @@ public class UnifiedClaimCommand extends UnifiedCommandHandler {
         return true;
     }
 
-    private boolean handleProtect(CommandSender sender, String[] args) {
+    private boolean handleCreate(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) {
             return false;
         }
