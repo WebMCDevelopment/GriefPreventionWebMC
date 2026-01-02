@@ -283,6 +283,8 @@ public class GriefPrevention extends JavaPlugin {
     public int config_advanced_offlineplayer_cache_days; // Cache players who have logged in within the last x number of
                                                          // days
 
+    public boolean config_webmc_protectworldspawn; // whether 0, 64, 0 in "world" should be protected by a claim
+
     // custom log settings
     public int config_logs_daysToKeep;
     public boolean config_logs_socialEnabled;
@@ -929,6 +931,9 @@ public class GriefPrevention extends JavaPlugin {
                 .getInt("GriefPrevention.Advanced.ClaimExpirationCheckRate", 60);
         this.config_advanced_offlineplayer_cache_days = config
                 .getInt("GriefPrevention.Advanced.OfflinePlayer_cache_days", 90);
+        
+        // webmc custom settings
+        this.config_webmc_protectworldspawn = config.getBoolean("GriefPrevention.WebMC.ProtectWorldSpawn", true);
 
         // custom logger settings
         this.config_logs_daysToKeep = config.getInt("GriefPrevention.Abridged Logs.Days To Keep", 7);
@@ -1089,6 +1094,10 @@ public class GriefPrevention extends JavaPlugin {
                 this.config_advanced_claim_expiration_check_rate);
         outConfig.set("GriefPrevention.Advanced.OfflinePlayer_cache_days",
                 this.config_advanced_offlineplayer_cache_days);
+        
+        // webmc custom settings
+        outConfig.set("GriefPrevention.WebMC.ProtectWorldSpawn",
+                this.config_webmc_protectworldspawn);
 
         // custom logger settings
         outConfig.set("GriefPrevention.Abridged Logs.Days To Keep", this.config_logs_daysToKeep);
