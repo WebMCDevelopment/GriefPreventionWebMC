@@ -147,7 +147,7 @@ public class RestoreNatureProcessingTask implements Runnable {
 
         // Schedule the execution task at the location's region (Folia-safe)
         SchedulerUtil.runAtLocation(GriefPrevention.instance, lesserBoundaryCorner, () -> {
-            new RestoreNatureExecutionTask(snapshots, miny, lesserBoundaryCorner, greaterBoundaryCorner, playerID).run();
+            new RestoreNatureExecutionTask(snapshots, miny, lesserBoundaryCorner, greaterBoundaryCorner, playerID, aggressiveMode).run();
         });
     }
 

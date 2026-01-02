@@ -225,7 +225,7 @@ public abstract class BoundaryVisualization
         if (claim == null) return Set.of();
 
         // Special visualizations focus exclusively on the supplied claim.
-        if (type == VisualizationType.CONFLICT_ZONE || type == VisualizationType.INITIALIZE_ZONE)
+        if (type == VisualizationType.CONFLICT_ZONE || type == VisualizationType.CONFLICT_ZONE_3D || type == VisualizationType.INITIALIZE_ZONE)
         {
             return Set.of(new Boundary(claim, type));
         }

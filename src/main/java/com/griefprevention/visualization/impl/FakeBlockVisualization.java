@@ -81,6 +81,7 @@ public class FakeBlockVisualization extends BlockBoundaryVisualization
                 ((Lightable) fakeData).setLit(true);
                 yield createElementAdder(fakeData, type, false);
             }
+            case CONFLICT_ZONE_3D -> createElementAdder(Material.REDSTONE_BLOCK.createBlockData(), type, true);
             case RESTORE_NATURE -> {
                 // Special handling - corners need directional facing, handled in draw()
                 // Return a dummy adder that will be overridden
@@ -104,6 +105,7 @@ public class FakeBlockVisualization extends BlockBoundaryVisualization
             case SUBDIVISION_3D -> createElementAdder(Material.WHITE_WOOL.createBlockData(), type, true);
             case INITIALIZE_ZONE -> createElementAdder(Material.DIAMOND_BLOCK.createBlockData(), type, false);
             case CONFLICT_ZONE -> createElementAdder(Material.NETHERRACK.createBlockData(), type, false);
+            case CONFLICT_ZONE_3D -> createElementAdder(Material.NETHERRACK.createBlockData(), type, true);
             case RESTORE_NATURE -> createElementAdder(Material.EMERALD_BLOCK.createBlockData(), type, false);
             default -> createElementAdder(Material.GOLD_BLOCK.createBlockData(), type, false);
         };
@@ -123,8 +125,8 @@ public class FakeBlockVisualization extends BlockBoundaryVisualization
     @Override
     protected void draw(@NotNull Player player, @NotNull Boundary boundary)
     {
-        // Use 3D-specific drawing for 3D subdivisions, otherwise use standard 2D drawing
-        if (boundary.type() == VisualizationType.SUBDIVISION_3D) {
+        // Use 3D-specific drawing for 3D subdivisions and 3D conflict zones, otherwise use standard 2D drawing
+        if (boundary.type() == VisualizationType.SUBDIVISION_3D || boundary.type() == VisualizationType.CONFLICT_ZONE_3D) {
             drawRespectingYBoundaries(player, boundary);
         } else if (boundary.type() == VisualizationType.RESTORE_NATURE) {
             drawRestoreNature(player, boundary);
@@ -516,6 +518,12 @@ public class FakeBlockVisualization extends BlockBoundaryVisualization
 
         Material blockMaterial = block.getType();
 
+        // Always pass through air and leaves - check before SnapOverride
+        if (blockMaterial.isAir() || Tag.LEAVES.isTagged(blockMaterial))
+        {
+            return true;
+        }
+
         // Check if this block has a special snap override - if so, treat as opaque
         SnapOverride override = SnapOverrideHelper.resolve(block, waterTransparent);
         if (override != null)
@@ -532,13 +540,11 @@ public class FakeBlockVisualization extends BlockBoundaryVisualization
         if (isStairOrSlab(block))
             return false;
 
-        if (blockMaterial.isAir()
-                || Tag.FENCES.isTagged(blockMaterial)
+        if (Tag.FENCES.isTagged(blockMaterial)
                 || Tag.FENCE_GATES.isTagged(blockMaterial)
                 || Tag.SIGNS.isTagged(blockMaterial)
                 || Tag.WALLS.isTagged(blockMaterial)
-                || Tag.WALL_SIGNS.isTagged(blockMaterial)
-                || Tag.LEAVES.isTagged(blockMaterial))
+                || Tag.WALL_SIGNS.isTagged(blockMaterial))
             return true;
 
         return block.getType().isTransparent();

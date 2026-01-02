@@ -321,6 +321,10 @@ public class GlowingVisualization extends FakeBlockVisualization {
             if (type == VisualizationType.ADMIN_CLAIM && fakeData.getMaterial() == Material.GLOWSTONE) {
                 glowColorOverrides.put(location, org.bukkit.Color.ORANGE);
             }
+            // Red glow for conflict zones
+            if (type == VisualizationType.CONFLICT_ZONE || type == VisualizationType.CONFLICT_ZONE_3D) {
+                glowColorOverrides.put(location, org.bukkit.Color.RED);
+            }
         }
     }
     
@@ -328,11 +332,12 @@ public class GlowingVisualization extends FakeBlockVisualization {
         if (pos == null || blockData == null || t == null || !player.isOnline()) return;
         
         // For 3D subdivisions and 2D subdivisions, use exact coordinates without terrain snapping
-        boolean isSubdivision = blockData.getMaterial() == Material.WHITE_WOOL ||
-                                blockData.getMaterial() == Material.IRON_BLOCK;
+        Material mat = blockData.getMaterial();
+        boolean isExactPlacement = mat == Material.WHITE_WOOL || mat == Material.IRON_BLOCK ||
+                                   mat == Material.REDSTONE_BLOCK || mat == Material.NETHERRACK;
 
         int y;
-        if (isSubdivision) {
+        if (isExactPlacement) {
             y = pos.y();
         } else {
             Block visibleLocation = getVisibleLocation(pos);
@@ -365,7 +370,7 @@ public class GlowingVisualization extends FakeBlockVisualization {
         
         // Tags for this display
         String playerTag = tagFor(player);
-        String typeTag = isSubdivision ? TAG_SUBDIV : TAG_OUTLINE;
+        String typeTag = isExactPlacement ? TAG_SUBDIV : TAG_OUTLINE;
         UUID playerId = player.getUniqueId();
         
         // Schedule the display creation using the proper entity scheduler

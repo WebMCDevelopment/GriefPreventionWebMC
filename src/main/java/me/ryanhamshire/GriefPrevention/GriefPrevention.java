@@ -3130,7 +3130,10 @@ public class GriefPrevention extends JavaPlugin {
         if (player instanceof Player online) {
             String name = online.getName();
             if (name != null) {
-                PLAYER_NAME_CACHE.put(player.getUniqueId(), name);
+                // Store name in cache.
+                if (name != null) {
+                    PLAYER_NAME_CACHE.put(player.getUniqueId(), name);
+                }
                 return name;
             }
         }
@@ -4053,10 +4056,15 @@ public class GriefPrevention extends JavaPlugin {
         if (!(sender instanceof Player player))
             return false;
 
-        if (args.length == 0)
-            return false;
-
         PlayerData playerData = this.dataStore.getPlayerData(player.getUniqueId());
+
+        // No args = standalone /basicclaims command - set basic mode directly
+        if (args.length == 0) {
+            playerData.shovelMode = ShovelMode.Basic;
+            playerData.claimSubdividing = null;
+            GriefPrevention.sendMessage(player, TextMode.Success, Messages.BasicClaimsMode);
+            return true;
+        }
 
         switch (args[0].toLowerCase()) {
             case "basic" -> {
@@ -4080,7 +4088,7 @@ public class GriefPrevention extends JavaPlugin {
             }
             default -> {
                 GriefPrevention.sendMessage(player, TextMode.Err, Messages.CommandInvalidMode);
-                return false;
+                return true;
             }
         }
 
@@ -4244,6 +4252,126 @@ public class GriefPrevention extends JavaPlugin {
      */
     public void deleteClaimsInWorldPublic(World world, boolean deleteAdminClaims) {
         this.dataStore.deleteClaimsInWorld(world, deleteAdminClaims);
+    }
+
+    /**
+     * Handles the extendclaim command logic.
+     * @param player The player executing the command
+     * @param args The command arguments
+     * @return true if the command was handled successfully
+     */
+    public boolean handleExtendClaimCommand(Player player, String[] args) {
+        if (args.length < 1) {
+            // link to a video demo of land claiming, based on world type
+            if (GriefPrevention.instance.creativeRulesApply(player.getLocation())) {
+                GriefPrevention.sendMessage(player, TextMode.Instr, Messages.CreativeBasicsVideo2,
+                        DataStore.CREATIVE_VIDEO_URL);
+            } else if (GriefPrevention.instance.claimsEnabledForWorld(player.getLocation().getWorld())) {
+                GriefPrevention.sendMessage(player, TextMode.Instr, Messages.SurvivalBasicsVideo2,
+                        DataStore.SURVIVAL_VIDEO_URL);
+            }
+            return false;
+        }
+
+        int amount;
+        try {
+            amount = Integer.parseInt(args[0]);
+        } catch (NumberFormatException e) {
+            // link to a video demo of land claiming, based on world type
+            if (GriefPrevention.instance.creativeRulesApply(player.getLocation())) {
+                GriefPrevention.sendMessage(player, TextMode.Instr, Messages.CreativeBasicsVideo2,
+                        DataStore.CREATIVE_VIDEO_URL);
+            } else if (GriefPrevention.instance.claimsEnabledForWorld(player.getLocation().getWorld())) {
+                GriefPrevention.sendMessage(player, TextMode.Instr, Messages.SurvivalBasicsVideo2,
+                        DataStore.SURVIVAL_VIDEO_URL);
+            }
+            return false;
+        }
+
+        // requires claim modification tool in hand, except if player is in creative or
+        // has the extendclaim permission.
+        if (player.getGameMode() != GameMode.CREATIVE
+                && player.getItemInHand().getType() != GriefPrevention.instance.config_claims_modificationTool
+                && !player.hasPermission("griefprevention.extendclaim.toolbypass")) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.MustHoldModificationToolForThat);
+            return true;
+        }
+
+        // must be standing in a land claim
+        PlayerData playerData = this.dataStore.getPlayerData(player.getUniqueId());
+        Claim claim = this.dataStore.getClaimAt(player.getLocation(), true, playerData.lastClaim);
+        if (claim == null) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.StandInClaimToResize);
+            return true;
+        }
+
+        // must have permission to edit the land claim you're in
+        Supplier<String> errorMessage = claim.checkPermission(player, ClaimPermission.Edit, null);
+        if (errorMessage != null) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.NotYourClaim);
+            return true;
+        }
+
+        // determine new corner coordinates
+        org.bukkit.util.Vector direction = player.getLocation().getDirection();
+        if (direction.getY() > .75) {
+            GriefPrevention.sendMessage(player, TextMode.Info, Messages.ClaimsExtendToSky);
+            return true;
+        }
+
+        if (direction.getY() < -.75) {
+            GriefPrevention.sendMessage(player, TextMode.Info, Messages.ClaimsAutoExtendDownward);
+            return true;
+        }
+
+        Location lc = claim.getLesserBoundaryCorner();
+        Location gc = claim.getGreaterBoundaryCorner();
+        int newx1 = lc.getBlockX();
+        int newx2 = gc.getBlockX();
+        int newy1 = lc.getBlockY();
+        int newy2 = gc.getBlockY();
+        int newz1 = lc.getBlockZ();
+        int newz2 = gc.getBlockZ();
+
+        // if changing Z only
+        if (Math.abs(direction.getX()) < .3) {
+            if (direction.getZ() > 0) {
+                newz2 += amount; // north
+            } else {
+                newz1 -= amount; // south
+            }
+        }
+
+        // if changing X only
+        else if (Math.abs(direction.getZ()) < .3) {
+            if (direction.getX() > 0) {
+                newx2 += amount; // east
+            } else {
+                newx1 -= amount; // west
+            }
+        }
+
+        // diagonals
+        else {
+            if (direction.getX() > 0) {
+                newx2 += amount;
+            } else {
+                newx1 -= amount;
+            }
+
+            if (direction.getZ() > 0) {
+                newz2 += amount;
+            } else {
+                newz1 -= amount;
+            }
+        }
+
+        // attempt resize
+        playerData.claimResizing = claim;
+        this.dataStore.resizeClaimWithChecks(player, playerData, newx1, newx2, newy1, newy2, newz1, newz2);
+        playerData.claimResizing = null;
+
+        return true;
     }
 
     /**

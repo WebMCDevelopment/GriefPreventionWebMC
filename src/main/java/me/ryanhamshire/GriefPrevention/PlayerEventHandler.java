@@ -1755,6 +1755,86 @@ import me.ryanhamshire.GriefPrevention.util.SchedulerUtil;
                                  clickedBlockType == Material.DECORATED_POT
                          )))
          {
+             // Check if player is holding golden shovel and in 3D subdivision mode
+             EquipmentSlot hand = event.getHand();
+             ItemStack itemInHand = instance.getItemInHand(player, hand);
+             if (itemInHand.getType() == instance.config_claims_modificationTool && hand == EquipmentSlot.HAND)
+             {
+                 if (playerData == null) playerData = this.dataStore.getPlayerData(player.getUniqueId());
+                 if (playerData.shovelMode == ShovelMode.Subdivide3D || playerData.shovelMode == ShovelMode.Subdivide)
+                 {
+                     // Cancel the event to prevent container from opening
+                     event.setCancelled(true);
+                                    
+                     // Set the subdivision point on this container block
+                     if (playerData.lastShovelLocation == null)
+                     {
+                         // First click - start subdivision
+                         Claim claim = this.dataStore.getClaimAt(clickedBlock.getLocation(), false, playerData.lastClaim);
+                         if (claim != null)
+                         {
+                             playerData.lastClaim = claim;
+                             GriefPrevention.sendMessage(player, TextMode.Instr, Messages.SubdivisionStart);
+                             playerData.lastShovelLocation = clickedBlock.getLocation();
+                             playerData.claimSubdividing = claim;
+                         }
+                     }
+                     else
+                     {
+                         // Second click - complete subdivision
+                         // Ensure same world
+                         if (!playerData.lastShovelLocation.getWorld().equals(clickedBlock.getWorld()))
+                         {
+                             playerData.lastShovelLocation = null;
+                             return;
+                         }
+                         // Determine Y boundaries based on shovel mode
+                         int y1 = playerData.lastShovelLocation.getBlockY();
+                         int y2 = clickedBlock.getY();
+                         int minY, maxY;
+                         if (playerData.shovelMode == ShovelMode.Subdivide) {
+                             // 2D mode: span full height
+                             minY = playerData.claimSubdividing.getLesserBoundaryCorner().getBlockY();
+                             maxY = player.getWorld().getMaxHeight();
+                         } else {
+                             // 3D mode: use clicked Y coordinates
+                             minY = Math.min(y1, y2);
+                             maxY = Math.max(y1, y2);
+                         }
+                         // Create the subdivision
+                         CreateClaimResult result = this.dataStore.createClaim(
+                             player.getWorld(),
+                             playerData.lastShovelLocation.getBlockX(), clickedBlock.getX(),
+                             minY, maxY,
+                             playerData.lastShovelLocation.getBlockZ(), clickedBlock.getZ(),
+                             null,  // owner not used for subdivisions
+                             playerData.claimSubdividing,
+                             null, player);
+                         if (!result.succeeded || result.claim == null)
+                         {
+                             if (result.claim != null)
+                             {
+                                 GriefPrevention.sendMessage(player, TextMode.Err, Messages.CreateSubdivisionOverlap);
+                                 BoundaryVisualization.visualizeClaim(player, result.claim, VisualizationType.CONFLICT_ZONE, clickedBlock);
+                             }
+                             else
+                             {
+                                 GriefPrevention.sendMessage(player, TextMode.Err, Messages.CreateClaimFailOverlapRegion);
+                             }
+                         }
+                         else
+                         {
+                             GriefPrevention.sendMessage(player, TextMode.Success, Messages.SubdivisionSuccess);
+                             VisualizationType vizType = result.claim.is3D() ? VisualizationType.SUBDIVISION_3D : VisualizationType.SUBDIVISION;
+                             BoundaryVisualization.visualizeClaim(player, result.claim, vizType, clickedBlock);
+                         }
+                         // Reset for next subdivision
+                         playerData.lastShovelLocation = null;
+                         playerData.claimSubdividing = null;
+                     }
+                     return;
+                 }
+             }
              if (playerData == null) playerData = this.dataStore.getPlayerData(player.getUniqueId());
  
              //block container use during pvp combat, same reason
@@ -2253,7 +2333,17 @@ import me.ryanhamshire.GriefPrevention.util.SchedulerUtil;
                 if (noEditReason == null)
                 {
                      //if he clicked on a corner, start resizing it
-                     if ((clickedBlock.getX() == claim.getLesserBoundaryCorner().getBlockX() || clickedBlock.getX() == claim.getGreaterBoundaryCorner().getBlockX()) && (clickedBlock.getZ() == claim.getLesserBoundaryCorner().getBlockZ() || clickedBlock.getZ() == claim.getGreaterBoundaryCorner().getBlockZ()))
+                     // For 3D claims, must check Y coordinate as well to avoid detecting vertical edges as corners
+                     boolean isCorner = (clickedBlock.getX() == claim.getLesserBoundaryCorner().getBlockX() || clickedBlock.getX() == claim.getGreaterBoundaryCorner().getBlockX()) && 
+                                     (clickedBlock.getZ() == claim.getLesserBoundaryCorner().getBlockZ() || clickedBlock.getZ() == claim.getGreaterBoundaryCorner().getBlockZ());
+                     // For 3D claims, also verify Y coordinate is at a boundary
+                     if (isCorner && claim.is3D())
+                     {
+                         int minY = Math.min(claim.getLesserBoundaryCorner().getBlockY(), claim.getGreaterBoundaryCorner().getBlockY());
+                         int maxY = Math.max(claim.getLesserBoundaryCorner().getBlockY(), claim.getGreaterBoundaryCorner().getBlockY());
+                         isCorner = (clickedBlock.getY() == minY || clickedBlock.getY() == maxY);
+                     }
+                     if (isCorner)
                      {
                          playerData.claimResizing = claim;
                          playerData.lastShovelLocation = clickedBlock.getLocation();
@@ -2282,7 +2372,7 @@ import me.ryanhamshire.GriefPrevention.util.SchedulerUtil;
                              //if the clicked claim was a subdivision, decide whether nesting is allowed
                             if (claim.parent != null)
                             {
-                                boolean parentIs3D = claim.is3D();
+                                boolean claimIs3D = claim.is3D();
                                 boolean wants3DSubdivision = playerData.shovelMode == ShovelMode.Subdivide3D;
                                 boolean canStartSubdivision;
 
@@ -2291,10 +2381,18 @@ import me.ryanhamshire.GriefPrevention.util.SchedulerUtil;
                                     // Nested subdivisions disabled entirely.
                                     canStartSubdivision = false;
                                 }
-                                else if (parentIs3D)
+                                else if (claimIs3D)
                                 {
-                                    // Only allow stacking inside a 3D parent when the player is in 3D mode.
-                                    canStartSubdivision = wants3DSubdivision;
+                                    // When nested subclaims enabled and inside a 3D subdivision:
+                                    // Only allow if NOT on the same X/Z boundary as the 3D subdivision
+                                    boolean onXBoundary = (clickedBlock.getX() == claim.getLesserBoundaryCorner().getBlockX() || 
+                                                        clickedBlock.getX() == claim.getGreaterBoundaryCorner().getBlockX());
+                                    boolean onZBoundary = (clickedBlock.getZ() == claim.getLesserBoundaryCorner().getBlockZ() || 
+                                                        clickedBlock.getZ() == claim.getGreaterBoundaryCorner().getBlockZ());
+                                    
+                                    // Block if on exact X/Z boundary (corners), allow nesting otherwise
+                                    // Also require 3D mode to stack inside 3D claims
+                                    canStartSubdivision = wants3DSubdivision && !(onXBoundary && onZBoundary);
                                 }
                                 else
                                 {
@@ -2310,7 +2408,27 @@ import me.ryanhamshire.GriefPrevention.util.SchedulerUtil;
                                 }
                                 else
                                 {
-                                    GriefPrevention.sendMessage(player, TextMode.Err, Messages.ResizeFailOverlapSubdivision);
+                                    // Show conflict zone visualization for the existing 3D subdivision
+                                    if (claimIs3D)
+                                    {
+                                        GriefPrevention.sendMessage(player, TextMode.Err, Messages.ResizeFailOverlapSubdivision);
+                                        VisualizationType conflictType = VisualizationType.CONFLICT_ZONE_3D;
+                                        BoundaryVisualization.visualizeClaim(player, claim, conflictType, clickedBlock);
+                                        
+                                        // If glow is enabled, auto-clear after 5 seconds
+                                        // If glow is NOT enabled, don't update visualization until player uses shovel/stick
+                                        if (instance.config_visualizationGlow)
+                                        {
+                                            final PlayerData finalPlayerData = playerData;
+                                            SchedulerUtil.runLaterEntity(instance, player, () -> {
+                                                finalPlayerData.setVisibleBoundaries(null);
+                                            }, 100L);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        GriefPrevention.sendMessage(player, TextMode.Err, Messages.ResizeFailOverlapSubdivision);
+                                    }
                                 }
                             }
                             else

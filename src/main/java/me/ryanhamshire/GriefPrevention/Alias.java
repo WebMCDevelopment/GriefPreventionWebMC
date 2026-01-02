@@ -67,6 +67,7 @@ public enum Alias {
             access: [access]
             container: [container]
             permission: [permission]
+            build: [build]
       """, "trust"),
 
   ClaimUntrust("""
@@ -76,11 +77,10 @@ public enum Alias {
       usage: "/claim untrust <player|all>"
       description: Revoke claim access from a player or everyone.
       arguments:
-        target:
-          type: player
-          options:
-            all: [all]
-            public: [public]
+        options:
+          player: player
+          all: [all]
+          public: [public]
       """, "untrust"),
 
   ClaimTrustlist("""
@@ -112,7 +112,7 @@ public enum Alias {
         mode:
           options:
             basic: [basic]
-            2d: [2d]
+            2d: [2d, subdivide]
             3d: [3d]
       """, "basicclaims"),
 
@@ -169,7 +169,7 @@ public enum Alias {
         scope:
           options:
             all: [all]
-      """, "abandon"),
+      """, "abandonclaim"),
 
   ClaimSiege("""
       enable: true
@@ -189,6 +189,17 @@ public enum Alias {
       usage: "/claim trapped"
       description: Attempt to escape if you are stuck inside a claim.
       """, "trapped"),
+
+  ClaimExpand("""
+      enable: true
+      commands: [expand]
+      standalone: [expandclaim, extendclaim]
+      usage: "/claim expand <numberOfBlocks>"
+      description: Expand the claim you're standing in by pushing or pulling its boundary.
+      arguments:
+        numberOfBlocks:
+          type: integer-negative
+      """, "expandclaim"),
 
   ClaimHelp("""
       enable: true
@@ -399,6 +410,7 @@ public enum Alias {
                     access: [access]
                     container: [container]
                     permission: [permission]
+                    build: [build]
 
             untrust:
               enable: true
@@ -407,11 +419,10 @@ public enum Alias {
               usage: "/claim untrust <player|all>"
               description: Revoke claim access from a player or everyone.
               arguments:
-                player:
-                  type: player
-                  options:
-                    all: [all]
-                    public: [public]
+                options:
+                  player: player
+                  all: [all]
+                  public: [public]
 
             trustlist:
               enable: true
@@ -450,7 +461,6 @@ public enum Alias {
               usage: "/claim restrictsubclaim"
               description: Toggle whether a subdivision inherits parent permissions.
 
-            
             explosions:
               enable: true
               commands: [explosions]
@@ -504,6 +514,16 @@ public enum Alias {
               standalone: [trapped]
               usage: "/claim trapped"
               description: Attempt to escape if you are stuck inside a claim.
+
+            expand:
+              enable: true
+              commands: [expand]
+              standalone: [expandclaim, extendclaim]
+              usage: "/claim expand <numberOfBlocks>"
+              description: Expand the claim you're standing in by pushing or pulling its boundary.
+              arguments:
+                numberOfBlocks:
+                  type: integer-negative
 
             help:
               enable: true

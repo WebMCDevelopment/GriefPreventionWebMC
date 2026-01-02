@@ -37,6 +37,7 @@ public class UnifiedClaimCommand extends UnifiedCommandHandler {
         registerSubcommand("abandon", this::handleAbandon, "abandonall");
         registerSubcommand("siege", this::handleSiege);
         registerSubcommand("trapped", this::handleTrapped);
+        registerSubcommand("expand", this::handleExpand);
         registerSubcommand("help", this::handleHelp);
 
         // Register standalone commands from Alias enum
@@ -53,6 +54,7 @@ public class UnifiedClaimCommand extends UnifiedCommandHandler {
         registerStandaloneCommand(Alias.ClaimAbandon, this::handleAbandon);
         registerStandaloneCommand(Alias.ClaimSiege, this::handleSiege);
         registerStandaloneCommand(Alias.ClaimTrapped, this::handleTrapped);
+        registerStandaloneCommand(Alias.ClaimExpand, this::handleExpand);
         registerStandaloneCommand(Alias.ClaimHelp, this::handleHelp);
     }
 
@@ -257,6 +259,9 @@ public class UnifiedClaimCommand extends UnifiedCommandHandler {
         // Handle specific trust types
         String type = args[1].toLowerCase();
         switch (type) {
+            case "build":
+                // Build trust is the default, so just use the standard trust command
+                return plugin.handleTrustCommand(sender, new String[] { recipientName });
             case "access":
                 return plugin.getCommand("accesstrust").execute(sender, "accesstrust", new String[] { recipientName });
             case "container":
@@ -272,6 +277,10 @@ public class UnifiedClaimCommand extends UnifiedCommandHandler {
 
     private boolean handleUntrust(CommandSender sender, String[] args) {
         // Delegate to existing untrust command logic
+        // The new structure uses a single options argument that can be:
+        // - A player name (from player: player)
+        // - "all" (from all: [all])
+        // - "public" (from public: [public])
         return plugin.handleUntrustCommand(sender, args);
     }
 
@@ -534,6 +543,14 @@ public class UnifiedClaimCommand extends UnifiedCommandHandler {
     private boolean handleTrapped(CommandSender sender, String[] args) {
         if (sender instanceof Player player) {
             return plugin.handleTrappedCommand(player, args);
+        } else {
+            return false;
+        }
+    }
+
+    private boolean handleExpand(CommandSender sender, String[] args) {
+        if (sender instanceof Player player) {
+            return plugin.handleExtendClaimCommand(player, args);
         } else {
             return false;
         }

@@ -244,7 +244,25 @@ public abstract class UnifiedCommandHandler implements TabExecutor {
             @Override
             public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
                     @NotNull String alias, @NotNull String[] args) {
-                return UnifiedCommandHandler.this.onTabComplete(sender, command, alias, args);
+                // For standalone commands, directly complete arguments for the specific subcommand
+                // instead of treating it as a root command with subcommand selection
+                String canonical = subcommandName; // subcommandName is already canonical
+                Object handlerObj = subcommands.get(canonical);
+                if (handlerObj instanceof TabExecutor) {
+                    // Create a mock command for TabExecutor
+                    org.bukkit.command.Command mockCommand = new org.bukkit.command.Command(canonical) {
+                        @Override
+                        public boolean execute(@NotNull org.bukkit.command.CommandSender sender,
+                                @NotNull String commandLabel, @NotNull String[] args) {
+                            return false;
+                        }
+                    };
+                    return ((TabExecutor) handlerObj).onTabComplete(sender, mockCommand, alias, args);
+                } else if (handlerObj != null) {
+                    // Use the subcommand argument completion logic
+                    return completeSubcommandArguments(sender, command, alias, canonical, args, args.length - 1);
+                }
+                return Collections.emptyList();
             }
         };
     }
@@ -482,8 +500,25 @@ public abstract class UnifiedCommandHandler implements TabExecutor {
 
         @Override
         public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String[] args) {
-            List<String> result = UnifiedCommandHandler.this.onTabComplete(sender, this, alias, args);
-            return result != null ? result : Collections.emptyList();
+            // For standalone commands, directly complete arguments for the specific subcommand
+            // instead of treating it as a root command with subcommand selection
+            String canonical = subcommandName; // subcommandName is already canonical
+            Object handlerObj = subcommands.get(canonical);
+            if (handlerObj instanceof TabExecutor) {
+                // Create a mock command for TabExecutor
+                org.bukkit.command.Command mockCommand = new org.bukkit.command.Command(canonical) {
+                    @Override
+                    public boolean execute(@NotNull org.bukkit.command.CommandSender sender,
+                            @NotNull String commandLabel, @NotNull String[] args) {
+                        return false;
+                    }
+                };
+                return ((TabExecutor) handlerObj).onTabComplete(sender, mockCommand, alias, args);
+            } else if (handlerObj != null) {
+                // Use the subcommand argument completion logic
+                return completeSubcommandArguments(sender, this, alias, canonical, args, args.length - 1);
+            }
+            return Collections.emptyList();
         }
     }
 
@@ -941,20 +976,28 @@ public abstract class UnifiedCommandHandler implements TabExecutor {
 
         String type = argument.type();
         if (type != null) {
-            switch (type) {
-                case "player", "online-player" -> {
-                    List<String> players = TabCompletions.visiblePlayers(sender, new String[] { current });
-                    // Exclude the sender themselves from player completions
-                    if (sender instanceof Player playerSender) {
-                        players.removeIf(name -> name.equalsIgnoreCase(playerSender.getName()));
-                    }
-                    suggestions.addAll(players);
+            // Check if it's a literal string (enclosed in single quotes)
+            if (type.startsWith("'") && type.endsWith("'")) {
+                String literal = type.substring(1, type.length() - 1);
+                if (!literal.isEmpty()) {
+                    suggestions.add(literal);
                 }
-                case "integer" -> suggestions.addAll(TabCompletions.integer(new String[] { current }, 6, false));
-                case "integer-negative" ->
-                    suggestions.addAll(TabCompletions.integer(new String[] { current }, 6, true));
-                default -> {
-                    // no special handling
+            } else {
+                switch (type) {
+                    case "player", "online-player" -> {
+                        List<String> players = TabCompletions.visiblePlayers(sender, new String[] { current });
+                        // Exclude the sender themselves from player completions
+                        if (sender instanceof Player playerSender) {
+                            players.removeIf(name -> name.equalsIgnoreCase(playerSender.getName()));
+                        }
+                        suggestions.addAll(players);
+                    }
+                    case "integer" -> suggestions.addAll(TabCompletions.integer(new String[] { current }, 6, false));
+                    case "integer-negative" ->
+                        suggestions.addAll(TabCompletions.integer(new String[] { current }, 6, true));
+                    default -> {
+                        // no special handling
+                    }
                 }
             }
         }

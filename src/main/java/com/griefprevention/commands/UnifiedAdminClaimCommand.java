@@ -190,22 +190,20 @@ public class UnifiedAdminClaimCommand extends UnifiedCommandHandler {
     }
 
     private boolean handleMode(CommandSender sender, String[] args) {
-        if (args.length == 0)
-            return false;
-
         if (!(sender instanceof Player player))
             return false;
 
         PlayerData playerData = plugin.dataStore.getPlayerData(player.getUniqueId());
 
-        if ("admin".equalsIgnoreCase(args[0])) {
+        // No args = standalone /adminclaims command - set admin mode directly
+        if (args.length == 0 || "admin".equalsIgnoreCase(args[0])) {
             playerData.shovelMode = ShovelMode.Admin;
             GriefPrevention.sendMessage(player, TextMode.Success, Messages.AdminClaimsMode);
             return true;
         }
 
         GriefPrevention.sendMessage(player, TextMode.Err, Messages.CommandInvalidMode);
-        return false;
+        return true;
     }
 
     private boolean handleAdminList(CommandSender sender, String[] args) {

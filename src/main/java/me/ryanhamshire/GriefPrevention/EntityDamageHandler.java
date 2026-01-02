@@ -179,7 +179,7 @@ public class EntityDamageHandler implements Listener {
         // Handle wind charge damage - wind charges are projectiles that deal knockback and damage
         // When PVP rules are enabled for the world, protect players in claims from wind charge attacks
         String damagerTypeName = damageSource != null ? damageSource.getType().name() : "";
-        if (damagerTypeName.contains("WIND_CHARGE") && event.damaged() instanceof Player defender) {
+        if ((damagerTypeName.contains("WIND_CHARGE") || damagerTypeName.equals("BREEZE_WIND_CHARGE")) && event.damaged() instanceof Player defender) {
             if (attacker != null && attacker != defender && instance.pvpRulesApply(defender.getWorld())) {
                 // Check if defender is in a protected claim
                 PlayerData defenderData = dataStore.getPlayerData(defender.getUniqueId());

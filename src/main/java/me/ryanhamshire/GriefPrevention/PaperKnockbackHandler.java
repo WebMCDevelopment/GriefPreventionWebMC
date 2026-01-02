@@ -3,7 +3,6 @@ package me.ryanhamshire.GriefPrevention;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
-import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -31,7 +30,7 @@ public class PaperKnockbackHandler implements Listener {
     /**
      * Handle wind charge knockback protection for players in PVP-protected claims.
      */
-    private void handleKnockback(@NotNull Entity entity, Entity source, @NotNull Cancellable event) {
+    private void handleKnockback(@NotNull Entity entity, Entity source, @NotNull io.papermc.paper.event.entity.EntityPushedByEntityAttackEvent event) {
         // Only handle knockback on players
         if (!(entity instanceof Player defender))
             return;
@@ -39,32 +38,51 @@ public class PaperKnockbackHandler implements Listener {
         if (source == null)
             return;
 
-        // Check if the source is a wind charge
+        // Check if this is explosion knockback (wind charges use EXPLOSION cause)
+        // Paper's getPushedBy() returns the player who threw the wind charge, not the wind charge itself
         String sourceTypeName = source.getType().name();
-        if (!sourceTypeName.contains("WIND_CHARGE"))
+        String causeName = event.getCause().name();
+        instance.AddLogEntry("DEBUG: Paper knockback detected - Source type: " + sourceTypeName + ", Cause: " + causeName);
+        
+        // Wind charge knockback from players: cause is EXPLOSION and source is the player
+        boolean isWindChargeKnockback = causeName.equals("EXPLOSION") && source instanceof Player;
+        
+        // Also check if source is directly a wind charge (for breeze wind charges)
+        if (!isWindChargeKnockback && !sourceTypeName.contains("WIND_CHARGE") && !sourceTypeName.equals("BREEZE_WIND_CHARGE")) {
+            instance.AddLogEntry("DEBUG: Not a wind charge knockback, returning");
             return;
+        }
 
-        // Get the player who threw the wind charge
+        // Get the attacker - for player-thrown wind charges, source IS the player
         Player attacker = null;
-        if (source instanceof Projectile projectile && projectile.getShooter() instanceof Player shooter) {
+        if (source instanceof Player player) {
+            attacker = player;
+        } else if (source instanceof Projectile projectile && projectile.getShooter() instanceof Player shooter) {
             attacker = shooter;
         }
 
         // Allow self-knockback (e.g., for movement tricks)
-        if (attacker == null || attacker == defender)
+        if (attacker == null || attacker == defender) {
+            instance.AddLogEntry("DEBUG: Self-knockback or null attacker, allowing");
             return;
+        }
 
         // Only protect when PVP rules are enabled for this world
-        if (!instance.pvpRulesApply(defender.getWorld()))
+        if (!instance.pvpRulesApply(defender.getWorld())) {
+            instance.AddLogEntry("DEBUG: PVP rules don't apply in world: " + defender.getWorld().getName());
             return;
+        }
 
         // Check if defender is in a PVP-protected claim
         PlayerData defenderData = dataStore.getPlayerData(defender.getUniqueId());
         Claim claim = dataStore.getClaimAt(defender.getLocation(), false, defenderData.lastClaim);
         if (claim != null && instance.claimIsPvPSafeZone(claim)) {
             defenderData.lastClaim = claim;
+            instance.AddLogEntry("DEBUG: Canceling wind charge knockback in protected claim");
             event.setCancelled(true);
             GriefPrevention.sendRateLimitedErrorMessage(attacker, Messages.CantFightWhileImmune);
+        } else {
+            instance.AddLogEntry("DEBUG: Allowing wind charge knockback - claim: " + (claim != null ? "not PVP safe" : "no claim"));
         }
     }
 

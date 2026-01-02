@@ -37,7 +37,7 @@ import java.util.UUID;
 
 /**
  * Folia-safe main thread task that applies the processed restore nature changes to the world.
- * Only modifies unclaimed blocks.
+ * Only modifies unclaimed blocks, unless in aggressive mode where it modifies all blocks.
  */
 public class RestoreNatureExecutionTask implements Runnable {
 
@@ -46,19 +46,23 @@ public class RestoreNatureExecutionTask implements Runnable {
     private final Location lesserCorner;
     private final Location greaterCorner;
     private final UUID playerID;
+    private final boolean aggressiveMode;
 
     public RestoreNatureExecutionTask(BlockSnapshot[][][] snapshots, int miny,
-            Location lesserCorner, Location greaterCorner, UUID playerID) {
+            Location lesserCorner, Location greaterCorner, UUID playerID, boolean aggressiveMode) {
         this.snapshots = snapshots;
         this.miny = miny;
         this.lesserCorner = lesserCorner;
         this.greaterCorner = greaterCorner;
         this.playerID = playerID;
+        this.aggressiveMode = aggressiveMode;
     }
 
     @Override
     public void run() {
-        // Apply changes to the world, but ONLY to unclaimed blocks
+        // Apply changes to the world
+        // In aggressive mode, modifies all blocks (including claimed ones)
+        // Otherwise, only modifies unclaimed blocks
         // Note: the edge of the results is not applied (1-block-wide band around the outside)
         // Those data were sent to the processing thread for reference purposes only
         Claim cachedClaim = null;
@@ -75,12 +79,15 @@ public class RestoreNatureExecutionTask implements Runnable {
                     if (blockUpdate.material != currentBlock.getType() ||
                             !blockUpdate.blockData.equals(currentBlock.getBlockData())) {
 
-                        // Only modify unclaimed blocks
-                        Claim claim = GriefPrevention.instance.dataStore.getClaimAt(
-                                blockUpdate.location, false, cachedClaim);
-                        if (claim != null) {
-                            cachedClaim = claim;
-                            continue; // Skip claimed blocks
+                        // In aggressive mode, modify all blocks (including claimed ones)
+                        // Otherwise, only modify unclaimed blocks
+                        if (!aggressiveMode) {
+                            Claim claim = GriefPrevention.instance.dataStore.getClaimAt(
+                                    blockUpdate.location, false, cachedClaim);
+                            if (claim != null) {
+                                cachedClaim = claim;
+                                continue; // Skip claimed blocks
+                            }
                         }
 
                         try {
@@ -114,11 +121,17 @@ public class RestoreNatureExecutionTask implements Runnable {
                 // Only clear if the entity is in the restoration area
                 Location entityLoc = entity.getLocation();
                 if (isInRestorationArea(entityLoc)) {
-                    // Check if block is not already air and not claimed
+                    // Check if block is not already air and not claimed (unless in aggressive mode)
                     if (feetBlock.getType() != Material.AIR) {
-                        Claim claim = GriefPrevention.instance.dataStore.getClaimAt(
-                                feetBlock.getLocation(), false, null);
-                        if (claim == null) {
+                        if (!aggressiveMode) {
+                            Claim claim = GriefPrevention.instance.dataStore.getClaimAt(
+                                    feetBlock.getLocation(), false, null);
+                            if (claim == null) {
+                                feetBlock.setType(Material.AIR);
+                                feetBlock.getRelative(BlockFace.UP).setType(Material.AIR);
+                            }
+                        } else {
+                            // In aggressive mode, clear the block regardless of claims
                             feetBlock.setType(Material.AIR);
                             feetBlock.getRelative(BlockFace.UP).setType(Material.AIR);
                         }
@@ -127,8 +140,8 @@ public class RestoreNatureExecutionTask implements Runnable {
             } else {
                 // For other entities, remove them if not protected
                 if (entity instanceof Hanging) {
-                    // Hanging entities (paintings, item frames) are protected in claims
-                    if (GriefPrevention.instance.dataStore.getClaimAt(
+                    // Hanging entities (paintings, item frames) are protected in claims unless in aggressive mode
+                    if (aggressiveMode || GriefPrevention.instance.dataStore.getClaimAt(
                             entity.getLocation(), false, null) == null) {
                         entity.remove();
                     }

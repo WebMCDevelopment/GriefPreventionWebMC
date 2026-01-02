@@ -18,6 +18,8 @@ public enum VisualizationType
     INITIALIZE_ZONE,
     /** Boundaries for a conflicting area. */
     CONFLICT_ZONE,
+    /** Boundaries for a conflicting 3D subdivision area. */
+    CONFLICT_ZONE_3D,
     /** Boundaries showing a restored nature area. */
     RESTORE_NATURE
 

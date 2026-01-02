@@ -12,17 +12,25 @@
 #                              ARGUMENT TYPES
 # ============================================================================
 #
-# When defining arguments, use these exact type values:
+# When defining arguments, use these type values:
 #
 #   player          - Suggests online player names
 #   online-player   - Same as player
 #   integer         - Suggests positive numbers (1, 2, 3...)
 #   integer-negative - Allows negative numbers (-1, -2, 0, 1...)
+#   'literal'       - Shows the literal text inside single quotes
 #
-# Example:
+# TYPE FIELD USAGE:
+#   - REQUIRED for dynamic suggestions (player, integer, etc.)
+#   - REQUIRED for literal suggestions ('text')
+#   - NOT NEEDED for arguments with only options (e.g., mode, trust types...)
+#
+# Examples:
 #   arguments:
 #     player:
-#       type: player      # <-- Must be one of the types above
+#       type: player      # <-- REQUIRED: Suggests player names
+#     radius:
+#       type: '[<radius>]'   # <-- REQUIRED: Shows literal "[<radius>]"
 #
 # ============================================================================
 
@@ -86,23 +94,23 @@ subcommands:
   claim:
 
     # ------------------------------------------------------------------------
-    # /claim protect - Create or resize claims
+    # /claim create - Create or resize claims
     # ------------------------------------------------------------------------
-    protect:
+    create:
       # Set to false to disable this subcommand entirely
       enable: true
 
       # Subcommand names - First entry is shown in tab completion
-      # Example: [criar, protect] shows "criar" but "protect" also works
-      commands: [protect]
+      # Example: [criar, create] shows "criar" but "create" also works
+      commands: [create]
 
-      # Standalone command versions (e.g., /protect instead of /claim protect)
+      # Standalone command versions (e.g., /create instead of /claim create)
       # Set to empty [] to disable standalone version
-      standalone: [protect]
+      standalone: [create]
 
       # Usage string shown in help - can include description after " - "
       # Format: "/command args" or "/command args - Description here"
-      usage: "/claim protect [radius]"
+      usage: "/claim create [radius]"
 
       # Description shown in /claim help (used if usage has no description)
       description: Create or expand a claim centered on you.
@@ -110,7 +118,7 @@ subcommands:
       # Argument configuration for tab completion
       arguments:
         radius:
-          type: integer    # Shows number suggestions
+          type: '[<radius>]'    # Shows literal suggestion
 
     # ------------------------------------------------------------------------
     # /claim trust - Grant access to players
@@ -143,6 +151,7 @@ subcommands:
             access: [access]
             container: [container]
             permission: [permission]
+            build: [build]
 
     # ------------------------------------------------------------------------
     # /claim untrust - Revoke player access
@@ -156,7 +165,6 @@ subcommands:
       arguments:
         player:
           type: player     # Suggests player names
-          # Options can be combined with type - both players AND these options shown
           options:
             all: [all]
             public: [public]
@@ -196,7 +204,6 @@ subcommands:
       description: Change your golden shovel claim mode.
       arguments:
         mode:
-          # Multiple aliases per option
           options:
             basic: [basic]
             2d: [2d, subdivide]    # Both "2d" and "subdivide" work
@@ -283,6 +290,19 @@ subcommands:
       standalone: [trapped]
       usage: "/claim trapped"
       description: Attempt to escape if you are stuck inside a claim.
+
+    # ------------------------------------------------------------------------
+    # /claim expand - Expand claim boundaries
+    # ------------------------------------------------------------------------
+    expand:
+      enable: true
+      commands: [expand]
+      standalone: [expandclaim, extendclaim]
+      usage: "/claim expand <numberOfBlocks>"
+      description: Expand the claim you're standing in by pushing or pulling its boundary.
+      arguments:
+        numberOfBlocks:
+          type: integer-negative
 
     # ------------------------------------------------------------------------
     # /claim help - Show help
