@@ -261,7 +261,10 @@ public enum Messages
     EconomyBuyBlocksUsage("Usage: /buyclaimblocks <amount>"),
     EconomySellBlocksUsage("Usage: /sellclaimblocks <amount>"),
     EconomyInvalidAmount("Please specify a valid positive number of blocks."),
-    EconomyNoVault("Economy support requires Vault plugin to be installed.");
+    EconomyNoVault("Economy support requires Vault plugin to be installed."),
+
+    PvPDisabled("This claim is now protected from PvP.  Use /pvpclaim again to disable."),
+    PvPEnabled("This claim is now vulnerable to PvP.  Use /pvpclaim again to re-enable protections.");
 
     final @NotNull String defaultValue;
     final @Nullable String notes;

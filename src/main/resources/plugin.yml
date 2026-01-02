@@ -220,6 +220,10 @@ commands:
     usage: /<command> [radius]
     permission: griefprevention.restorenatureaggressive
     aliases: rnf
+  pvpclaim:
+    description: Allows PvP in the current claim.
+    usage: /<command>
+    permission: griefprevention.webmc.pvpclaim
 
 permissions:
   griefprevention.createclaims:
@@ -357,3 +361,6 @@ permissions:
   griefprevention.restorenatureaggressive:
     description: Grants permission to use /restorenatureaggressive and /restorenaturefill.
     default: op
+  griefprevention.webmc.pvpclaim:
+    description: Grants permission to use /pvpclaim.
+    default: false

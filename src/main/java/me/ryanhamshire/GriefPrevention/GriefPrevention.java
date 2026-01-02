@@ -2702,6 +2702,12 @@ public class GriefPrevention extends JavaPlugin {
 
             return true;
         }
+
+        // pvpclaim
+        if (cmd.getName().equalsIgnoreCase("pvpclaim") && player != null) {
+            return this.pvpClaimHandler(player);
+        }
+
         return false;
     }
 
@@ -4391,5 +4397,35 @@ public class GriefPrevention extends JavaPlugin {
      */
     public void changeClaimOwnerPublic(Claim claim, UUID newOwnerID) throws DataStore.NoTransferException {
         this.dataStore.changeClaimOwner(claim, newOwnerID);
+    }
+
+    public boolean pvpClaimHandler(Player player) {
+        PlayerData playerData = this.dataStore.getPlayerData(player.getUniqueId());
+
+        // which claim is being modified?
+        Claim claim = this.dataStore.getClaimAt(player.getLocation(), false, playerData.lastClaim);
+
+        // if no claim here, nothing to modify
+        if (claim == null) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.BlockNotClaimed);
+            return true;
+        }
+
+        // verify ownership
+        if (claim.checkPermission(player, ClaimPermission.Edit, null) != null) {
+            GriefPrevention.sendMessage(player, TextMode.Err, Messages.NotYourClaim);
+            return true;
+        } else {
+            if (claim.allowPvP) {
+                claim.allowPvP = false;
+                GriefPrevention.sendMessage(player, TextMode.Success, Messages.PvPDisabled);
+            } else {
+                claim.allowPvP = true;
+                GriefPrevention.sendMessage(player, TextMode.Success, Messages.PvPEnabled);
+            }
+        }
+
+        return true;
+
     }
 }

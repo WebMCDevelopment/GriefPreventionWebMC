@@ -105,6 +105,9 @@ public class Claim
 
      //expiration date for this claim (0 = never expires)
      private long expirationDate = 0;
+
+     //whether this claim force allows pvp
+     public boolean allowPvP = false;
  
      //set whether this claim should respect Y boundaries (for 3D subdivisions)
      public void set3D(boolean is3D) {
@@ -137,7 +140,7 @@ public class Claim
      }
  
     //main constructor.  note that only creating a claim instance does nothing - a claim must be added to the data store to be effective
-    Claim(Location lesserBoundaryCorner, Location greaterBoundaryCorner, UUID ownerID, List<String> builderIDs, List<String> containerIDs, List<String> accessorIDs, List<String> managerIDs, boolean inheritNothing, Long id, boolean is3D)
+    Claim(Location lesserBoundaryCorner, Location greaterBoundaryCorner, UUID ownerID, List<String> builderIDs, List<String> containerIDs, List<String> accessorIDs, List<String> managerIDs, boolean inheritNothing, Long id, boolean is3D, boolean allowPvP, boolean allowExplosives)
     {
         //modification date
         this.modifiedDate = Calendar.getInstance().getTime();
@@ -200,11 +203,14 @@ public class Claim
         }
 
         this.inheritNothing = inheritNothing;
+
+        this.allowPvP = allowPvP;
+        this.areExplosivesAllowed = allowExplosives;
     }
  
      Claim(Location lesserBoundaryCorner, Location greaterBoundaryCorner, UUID ownerID, List<String> builderIDs, List<String> containerIDs, List<String> accessorIDs, List<String> managerIDs, Long id)
      {
-         this(lesserBoundaryCorner, greaterBoundaryCorner, ownerID, builderIDs, containerIDs, accessorIDs, managerIDs, false, id, false);
+         this(lesserBoundaryCorner, greaterBoundaryCorner, ownerID, builderIDs, containerIDs, accessorIDs, managerIDs, false, id, false, false, false);
      }
  
      //produces a copy of a claim.

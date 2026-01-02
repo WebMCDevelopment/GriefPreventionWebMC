@@ -334,7 +334,19 @@ public enum Alias {
   // Empty subcommands sections (for backwards compatibility)
   ClaimSubcommands(""),
 
-  AClaimSubcommands("");
+  AClaimSubcommands(""),
+
+  ClaimAllowPvP("""
+      enable: true
+      commands: [pvp]
+      standalone: [pvpclaim]
+      usage: "/claim pvp [all]"
+      description: Allow PvP in the claim you are standing in or all claims you own.
+      arguments:
+        scope:
+          options:
+            all: [all]
+      """, "pvpclaim");
 
   final @NotNull String defaultValue;
   final @NotNull String standalone;
@@ -649,6 +661,18 @@ public enum Alias {
               arguments:
                 page:
                   type: integer
+
+
+            pvpclaim:
+              enable: true
+              commands: [pvp]
+              standalone: [pvpclaim]
+              usage: "/claim pvp [all]"
+              description: Allow PvP in the claim you are standing in or all claims you own.
+              arguments:
+                scope:
+                  options:
+                    all: [all]
         """;
   }
 

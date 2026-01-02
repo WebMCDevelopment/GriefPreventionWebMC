@@ -1151,7 +1151,11 @@ public abstract class DataStore {
         }
 
         boolean is3D = false;
+        boolean allowPvP = false;
+        boolean allowExplosives = false;
         if (parent != null) {
+            allowPvP = parent.allowPvP;
+            allowExplosives = parent.areExplosivesAllowed;
             Location lesser = parent.getLesserBoundaryCorner();
             Location greater = parent.getGreaterBoundaryCorner();
             if (smallx < lesser.getX() || smallz < lesser.getZ() || bigx > greater.getX() || bigz > greater.getZ()) {
@@ -1207,7 +1211,9 @@ public abstract class DataStore {
                 new ArrayList<>(),
                 false,
                 id,
-                is3D);
+                is3D,
+                allowPvP,
+                allowExplosives);
 
         newClaim.parent = parent;
 

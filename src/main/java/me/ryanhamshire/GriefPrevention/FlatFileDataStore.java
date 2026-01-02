@@ -553,8 +553,12 @@ public class FlatFileDataStore extends DataStore
         // Add is3D flag
         boolean is3D = yaml.getBoolean("Is3D", false);
 
+        // Add WebMC flags
+        boolean allowPvP = yaml.getBoolean("AllowPvP", false);
+        boolean allowExplosives = yaml.getBoolean("AllowExplosives", false);
+
         //instantiate
-        claim = new Claim(lesserBoundaryCorner, greaterBoundaryCorner, ownerID, builders, containers, accessors, managers, inheritNothing, claimID, is3D);
+        claim = new Claim(lesserBoundaryCorner, greaterBoundaryCorner, ownerID, builders, containers, accessors, managers, inheritNothing, claimID, is3D, allowPvP, allowExplosives);
         claim.modifiedDate = new Date(lastModifiedDate);
         claim.id = claimID;
 
@@ -613,6 +617,9 @@ public class FlatFileDataStore extends DataStore
         boolean inheritNothing = section.getBoolean("inheritNothing");
         boolean is3D = section.getBoolean("Is3D", false);
 
+        boolean allowPvP = section.getBoolean("AllowPvP", false);
+        boolean allowExplosives = section.getBoolean("AllowExplosives", false);
+
         Long childID = null;
         if (section.contains("Claim ID"))
         {
@@ -627,7 +634,7 @@ public class FlatFileDataStore extends DataStore
             }
         }
 
-        Claim child = new Claim(lesserBoundaryCorner, greaterBoundaryCorner, ownerID, builders, containers, accessors, managers, inheritNothing, childID, is3D);
+        Claim child = new Claim(lesserBoundaryCorner, greaterBoundaryCorner, ownerID, builders, containers, accessors, managers, inheritNothing, childID, is3D, allowPvP, allowExplosives);
         child.parent = parent;
         child.inDataStore = true;
 
@@ -697,6 +704,9 @@ public class FlatFileDataStore extends DataStore
         section.set("inheritNothing", claim.getSubclaimRestrictions());
         section.set("Is3D", claim.is3D());
         section.set("Modified Date", claim.modifiedDate != null ? claim.modifiedDate.getTime() : System.currentTimeMillis());
+
+        section.set("AllowPvP", claim.allowPvP);
+        section.set("AllowExplosives", claim.areExplosivesAllowed);
 
         ArrayList<Claim> persistedChildren = new ArrayList<>();
         for (Claim child : claim.children)
