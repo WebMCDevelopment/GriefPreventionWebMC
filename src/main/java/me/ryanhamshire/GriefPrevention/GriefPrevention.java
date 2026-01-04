@@ -3607,12 +3607,12 @@ public class GriefPrevention extends JavaPlugin {
     }
 
     public boolean claimIsPvPSafeZone(Claim claim) {
-        return claim.isAdminClaim() && claim.parent == null
+        return !claim.allowPvP && (claim.isAdminClaim() && claim.parent == null
                 && GriefPrevention.instance.config_pvp_noCombatInAdminLandClaims ||
                 claim.isAdminClaim() && claim.parent != null
                         && GriefPrevention.instance.config_pvp_noCombatInAdminSubdivisions
                 ||
-                !claim.isAdminClaim() && GriefPrevention.instance.config_pvp_noCombatInPlayerLandClaims;
+                !claim.isAdminClaim() && GriefPrevention.instance.config_pvp_noCombatInPlayerLandClaims);
     }
 
     /*
