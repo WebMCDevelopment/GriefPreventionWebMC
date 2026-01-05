@@ -81,7 +81,7 @@ public class FakeBlockVisualization extends BlockBoundaryVisualization
                 ((Lightable) fakeData).setLit(true);
                 yield createElementAdder(fakeData, type, false);
             }
-            case CONFLICT_ZONE_3D -> createElementAdder(Material.REDSTONE_BLOCK.createBlockData(), type, true);
+            case CONFLICT_ZONE_3D -> createElementAdder(Material.REDSTONE_ORE.createBlockData(), type, true);
             case RESTORE_NATURE -> {
                 // Special handling - corners need directional facing, handled in draw()
                 // Return a dummy adder that will be overridden
