@@ -334,7 +334,7 @@ public class GlowingVisualization extends FakeBlockVisualization {
         // For 3D subdivisions and 2D subdivisions, use exact coordinates without terrain snapping
         Material mat = blockData.getMaterial();
         boolean isExactPlacement = mat == Material.WHITE_WOOL || mat == Material.IRON_BLOCK ||
-                                   mat == Material.REDSTONE_BLOCK || mat == Material.NETHERRACK;
+                                   mat == Material.REDSTONE_ORE || mat == Material.NETHERRACK;
 
         int y;
         if (isExactPlacement) {

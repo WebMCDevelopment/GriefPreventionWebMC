@@ -2014,6 +2014,9 @@ public class GriefPrevention extends JavaPlugin {
                     claim.areExplosivesAllowed = true;
                     GriefPrevention.sendMessage(player, TextMode.Success, Messages.ExplosivesEnabled);
                 }
+
+                // Save the claim to persist the change
+                this.dataStore.saveClaim(claim);
             }
 
             return true;
@@ -4174,6 +4177,9 @@ public class GriefPrevention extends JavaPlugin {
             claim.areExplosivesAllowed = true;
             GriefPrevention.sendMessage(player, TextMode.Success, Messages.ExplosivesEnabled);
         }
+
+        // Save the claim to persist the change
+        this.dataStore.saveClaim(claim);
 
         return true;
     }

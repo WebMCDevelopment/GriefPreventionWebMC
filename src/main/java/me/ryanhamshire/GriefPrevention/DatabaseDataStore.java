@@ -47,9 +47,9 @@ public class DatabaseDataStore extends DataStore
     private static final String SQL_UPDATE_NAME =
             "UPDATE griefprevention_playerdata SET name = ? WHERE name = ?";
     private static final String SQL_UPDATE_CLAIM =
-            "UPDATE griefprevention_claimdata SET owner = ?, lessercorner = ?, greatercorner = ?, builders = ?, containers = ?, accessors = ?, managers = ?, inheritnothing = ?, parentid = ?, expiration = ? WHERE id = ?";
+            "UPDATE griefprevention_claimdata SET owner = ?, lessercorner = ?, greatercorner = ?, builders = ?, containers = ?, accessors = ?, managers = ?, inheritnothing = ?, parentid = ?, expiration = ?, explosivesallowed = ?, allowpvp = ? WHERE id = ?";
     private static final String SQL_INSERT_CLAIM =
-            "INSERT INTO griefprevention_claimdata (id, owner, lessercorner, greatercorner, builders, containers, accessors, managers, inheritnothing, parentid, expiration) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            "INSERT INTO griefprevention_claimdata (id, owner, lessercorner, greatercorner, builders, containers, accessors, managers, inheritnothing, parentid, expiration, explosivesallowed, allowpvp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String SQL_DELETE_CLAIM =
             "DELETE FROM griefprevention_claimdata WHERE id = ?";
     private static final String SQL_SELECT_PLAYER_DATA =
@@ -74,6 +74,10 @@ public class DatabaseDataStore extends DataStore
             "SELECT * FROM griefprevention_claimdata WHERE id = ?";
     private static final String SQL_UPDATE_SCHEMA_ADD_EXPIRATION =
             "ALTER TABLE griefprevention_claimdata ADD COLUMN IF NOT EXISTS expiration BIGINT DEFAULT 0";
+    private static final String SQL_UPDATE_SCHEMA_ADD_EXPLOSIVES =
+            "ALTER TABLE griefprevention_claimdata ADD COLUMN IF NOT EXISTS explosivesallowed BOOLEAN DEFAULT 0";
+    private static final String SQL_UPDATE_SCHEMA_ADD_PVP =
+            "ALTER TABLE griefprevention_claimdata ADD COLUMN IF NOT EXISTS allowpvp BOOLEAN DEFAULT 0";
 
     private Connection databaseConnection = null;
 
@@ -107,7 +111,7 @@ public class DatabaseDataStore extends DataStore
         {
             //ensure the data tables exist
             statement.execute("CREATE TABLE IF NOT EXISTS griefprevention_nextclaimid (nextid INTEGER)");
-            statement.execute("CREATE TABLE IF NOT EXISTS griefprevention_claimdata (id INTEGER, owner VARCHAR(50), lessercorner VARCHAR(100), greatercorner VARCHAR(100), builders TEXT, containers TEXT, accessors TEXT, managers TEXT, inheritnothing BOOLEAN, parentid INTEGER, expiration BIGINT)");
+            statement.execute("CREATE TABLE IF NOT EXISTS griefprevention_claimdata (id INTEGER, owner VARCHAR(50), lessercorner VARCHAR(100), greatercorner VARCHAR(100), builders TEXT, containers TEXT, accessors TEXT, managers TEXT, inheritnothing BOOLEAN, parentid INTEGER, expiration BIGINT, explosivesallowed BOOLEAN DEFAULT 0, allowpvp BOOLEAN DEFAULT 0)");
             statement.execute("CREATE TABLE IF NOT EXISTS griefprevention_playerdata (name VARCHAR(50), lastlogin DATETIME, accruedblocks INTEGER, bonusblocks INTEGER)");
             statement.execute("CREATE TABLE IF NOT EXISTS griefprevention_schemaversion (version INTEGER)");
 
@@ -270,6 +274,18 @@ public class DatabaseDataStore extends DataStore
             statement.execute(SQL_UPDATE_SCHEMA_ADD_EXPIRATION);
         }
 
+        if (this.getSchemaVersion() <= 4)
+        {
+            statement = this.databaseConnection.createStatement();
+            statement.execute(SQL_UPDATE_SCHEMA_ADD_EXPLOSIVES);
+        }
+
+        if (this.getSchemaVersion() <= 5)
+        {
+            statement = this.databaseConnection.createStatement();
+            statement.execute(SQL_UPDATE_SCHEMA_ADD_PVP);
+        }
+
         //load claims data into memory
 
         results = statement.executeQuery("SELECT * FROM griefprevention_claimdata");
@@ -362,8 +378,14 @@ public class DatabaseDataStore extends DataStore
                 String managersString = results.getString("managers");
                 List<String> managerNames = Arrays.asList(managersString.split(";"));
                 managerNames = this.convertNameListToUUIDList(managerNames);
-                Claim claim = new Claim(lesserBoundaryCorner, greaterBoundaryCorner, ownerID, builderNames, containerNames, accessorNames, managerNames, inheritNothing, claimID, false, false, false);
+
+                boolean explosivesAllowed = results.getBoolean("explosivesallowed");
+                boolean allowPvP = results.getBoolean("allowpvp");
+
+                Claim claim = new Claim(lesserBoundaryCorner, greaterBoundaryCorner, ownerID, builderNames, containerNames, accessorNames, managerNames, inheritNothing, claimID, false);
                 claim.setExpirationDate(expirationDate);
+                claim.areExplosivesAllowed = explosivesAllowed;
+                claim.allowPvP = allowPvP;
 
                 if (removeClaim)
                 {
@@ -463,6 +485,8 @@ public class DatabaseDataStore extends DataStore
         boolean inheritNothing = claim.getSubclaimRestrictions();
         long parentId = claim.parent == null ? -1 : claim.parent.id;
         long expirationDate = claim.getExpirationDate();
+        boolean explosivesAllowed = claim.areExplosivesAllowed;
+        boolean allowPvP = claim.allowPvP;
 
         try (PreparedStatement insertStmt = this.databaseConnection.prepareStatement(SQL_INSERT_CLAIM))
         {
@@ -478,6 +502,8 @@ public class DatabaseDataStore extends DataStore
             insertStmt.setBoolean(9, inheritNothing);
             insertStmt.setLong(10, parentId);
             insertStmt.setLong(11, expirationDate);
+            insertStmt.setBoolean(12, explosivesAllowed);
+            insertStmt.setBoolean(13, allowPvP);
             insertStmt.executeUpdate();
         }
         catch (SQLException e)

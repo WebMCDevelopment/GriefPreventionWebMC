@@ -1,7 +1,7 @@
 name: GriefPrevention
 main: me.ryanhamshire.GriefPrevention.GriefPrevention
 softdepend:
-  [Multiverse-Core, My_Worlds, MystCraft, Transporter, RoyalCommands, MultiWorld, Denizen, CommandHelper, GPFlags]
+  [Multiverse-Core, My_Worlds, MystCraft, Transporter, RoyalCommands, MultiWorld, Denizen, CommandHelper]
 dev-url: https://dev.bukkit.org/projects/grief-prevention
 version: "${project.version}"
 api-version: "1.21"
@@ -204,7 +204,6 @@ commands:
     description: Sell claim blocks for server currency.
     usage: /<command> [amount]
     permission: griefprevention.buysellclaimblocks
-    aliases: sellclaim
   restorenature:
     description: Switches the shovel tool to restoration mode.
     usage: /<command>

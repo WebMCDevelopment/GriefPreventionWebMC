@@ -93,7 +93,7 @@ public abstract class DataStore {
     final static String bannedWordsFilePath = dataLayerFolderPath + File.separator + "bannedWords.txt";
 
     // the latest version of the data schema implemented here
-    protected static final int latestSchemaVersion = 3;
+    protected static final int latestSchemaVersion = 105;
 
     // reading and writing the schema version to the data store
     abstract int getSchemaVersionFromStorage();
@@ -1202,18 +1202,20 @@ public abstract class DataStore {
 
         // creative mode claims always go to bedrock
         Claim newClaim = new Claim(
-                smallerBoundaryCorner,
-                greaterBoundaryCorner,
-                ownerID,
-                new ArrayList<>(),
-                new ArrayList<>(),
-                new ArrayList<>(),
-                new ArrayList<>(),
-                false,
-                id,
-                is3D,
-                allowPvP,
-                allowExplosives);
+            smallerBoundaryCorner,
+            greaterBoundaryCorner,
+            ownerID,
+            new ArrayList<>(),
+            new ArrayList<>(),
+            new ArrayList<>(),
+            new ArrayList<>(),
+            false,
+            id,
+            is3D
+        );
+
+        newClaim.allowPvP = allowPvP;
+        newClaim.areExplosivesAllowed = allowExplosives;
 
         newClaim.parent = parent;
 

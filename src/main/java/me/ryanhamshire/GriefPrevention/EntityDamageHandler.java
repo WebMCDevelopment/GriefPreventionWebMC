@@ -323,7 +323,7 @@ public class EntityDamageHandler implements Listener {
         Claim claim = dataStore.getClaimAt(location, false, null);
         if (claim == null)
             return false;
-        // Fall back to claim setting if no GPFlags override
+        // Check claim setting for explosives
         if (claim.areExplosivesAllowed)
             return false;
 
