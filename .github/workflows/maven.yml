@@ -33,7 +33,7 @@ jobs:
 
       - name: Build Plugin
         run: |
-          mvn clean install
+          mvn clean install -U
 
       - name: Get short commit hash
         id: vars

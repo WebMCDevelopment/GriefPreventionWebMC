@@ -49,9 +49,9 @@ commands:
     aliases: at
     permission: griefprevention.claims
   permissiontrust:
-    description: Grants a player permission to grant his level of permission to others.
-    usage: /<command> <player>.  Permits a player to share his permission level with others.
-    aliases: pt
+    description: Grants a player permission to manage the claim trustlist.
+    usage: /<command> <player>.  Permits a player to /trust and /untrust players in the claim.
+    aliases: [pt, managetrust]
     permission: griefprevention.claims
   subdivideclaims:
     description: Switches the shovel tool to subdivision mode, used to subdivide your claims.
@@ -219,6 +219,66 @@ commands:
     usage: /<command> [radius]
     permission: griefprevention.restorenatureaggressive
     aliases: rnf
+  protect:
+    description: Create a claim.
+    usage: /<command>
+    permission: griefprevention.claims
+  list:
+    description: List your claims.
+    usage: /<command>
+    permission: griefprevention.claims
+  mode:
+    description: Switch tool mode.
+    usage: /<command>
+    permission: griefprevention.claims
+  explosions:
+    description: Toggle explosions in claim.
+    usage: /<command>
+    permission: griefprevention.claims
+  buyblocks:
+    description: Buy claim blocks.
+    usage: /<command>
+    permission: griefprevention.claims
+  sellblocks:
+    description: Sell claim blocks.
+    usage: /<command>
+    permission: griefprevention.claims
+  abandon:
+    description: Abandon a claim.
+    usage: /<command>
+    permission: griefprevention.claims
+  siege:
+    description: Siege a player/claim.
+    usage: /<command>
+    permission: griefprevention.siege
+  restore:
+    description: Restore nature.
+    usage: /<command>
+    permission: griefprevention.adminclaims
+  adminlist:
+    description: List admin claims.
+    usage: /<command>
+    permission: griefprevention.adminclaims
+  blocks:
+    description: Adjust claim blocks.
+    usage: /<command>
+    permission: griefprevention.adjustclaimblocks
+  delete:
+    description: Delete a claim.
+    usage: /<command>
+    permission: griefprevention.deleteclaims
+  transfer:
+    description: Transfer a claim.
+    usage: /<command>
+    permission: griefprevention.transferclaim
+  checkexpiry:
+    description: Check claim expiration.
+    usage: /<command>
+    permission: griefprevention.checkclaimexpiry
+  help:
+    description: GriefPrevention help.
+    usage: /<command>
+    permission: griefprevention.claims
   pvpclaim:
     description: Allows PvP in the current claim.
     usage: /<command>

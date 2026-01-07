@@ -3,10 +3,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.griefprevention</groupId>
-    <artifactId>GriefPrevention</artifactId>
+    <artifactId>GriefPreventionWebMC</artifactId>
     <version>17.0.21</version>
 
-    <name>GriefPrevention</name>
+    <name>GriefPreventionWebMC</name>
     <description>The official self-service anti-griefing Bukkit plugin for Minecraft servers since 2011.</description>
     <inceptionYear>2011</inceptionYear>
     <packaging>jar</packaging>
@@ -52,7 +52,7 @@
     </repositories>
 
     <build>
-        <finalName>${project.name}</finalName>
+        <finalName>${project.artifactId}-${project.version}</finalName>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>

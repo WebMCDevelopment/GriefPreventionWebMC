@@ -396,7 +396,8 @@ public abstract class DataStore {
         // subdivisions are added under their parent, not directly to the hash map for
         // direct search
         if (newClaim.parent != null) {
-            // Check by ID to prevent duplicates (object reference comparison is insufficient
+            // Check by ID to prevent duplicates (object reference comparison is
+            // insufficient
             // since the same subdivision may be loaded from multiple sources)
             boolean alreadyExists = false;
             if (newClaim.id != null) {
@@ -407,8 +408,10 @@ public abstract class DataStore {
                     }
                 }
             }
-            // Additional check: prevent duplicates by comparing boundaries during resize operations
-            // This catches cases where subdivisions might be added with the same boundaries but different timing
+            // Additional check: prevent duplicates by comparing boundaries during resize
+            // operations
+            // This catches cases where subdivisions might be added with the same boundaries
+            // but different timing
             if (!alreadyExists) {
                 for (Claim child : newClaim.parent.children) {
                     if (boundariesEqual(newClaim, child)) {
@@ -506,21 +509,23 @@ public abstract class DataStore {
 
     // Helper method to compare claim boundaries for duplicate detection
     private boolean boundariesEqual(Claim claim1, Claim claim2) {
-        if (claim1 == null || claim2 == null) return false;
-        if (claim1.parent != claim2.parent) return false;
-        
+        if (claim1 == null || claim2 == null)
+            return false;
+        if (claim1.parent != claim2.parent)
+            return false;
+
         Location c1Lesser = claim1.getLesserBoundaryCorner();
         Location c1Greater = claim1.getGreaterBoundaryCorner();
         Location c2Lesser = claim2.getLesserBoundaryCorner();
         Location c2Greater = claim2.getGreaterBoundaryCorner();
-        
+
         return c1Lesser.getBlockX() == c2Lesser.getBlockX() &&
-               c1Lesser.getBlockY() == c2Lesser.getBlockY() &&
-               c1Lesser.getBlockZ() == c2Lesser.getBlockZ() &&
-               c1Greater.getBlockX() == c2Greater.getBlockX() &&
-               c1Greater.getBlockY() == c2Greater.getBlockY() &&
-               c1Greater.getBlockZ() == c2Greater.getBlockZ() &&
-               claim1.is3D() == claim2.is3D();
+                c1Lesser.getBlockY() == c2Lesser.getBlockY() &&
+                c1Lesser.getBlockZ() == c2Lesser.getBlockZ() &&
+                c1Greater.getBlockX() == c2Greater.getBlockX() &&
+                c1Greater.getBlockY() == c2Greater.getBlockY() &&
+                c1Greater.getBlockZ() == c2Greater.getBlockZ() &&
+                claim1.is3D() == claim2.is3D();
     }
 
     // turns a location into a string, useful in data storage
@@ -634,15 +639,16 @@ public abstract class DataStore {
     synchronized void deleteClaim(Claim claim, boolean fireEvent, boolean ignored) {
         // Debug logging for claim deletion
         if (GriefPrevention.instance.config_logs_debugEnabled) {
-            String claimType = claim.parent != null ? "Subdivision" : (claim.isAdminClaim() ? "Admin Claim" : "Top-level Claim");
+            String claimType = claim.parent != null ? "Subdivision"
+                    : (claim.isAdminClaim() ? "Admin Claim" : "Top-level Claim");
             String ownerInfo = claim.ownerID != null ? claim.ownerID.toString() : "admin";
-            String locationInfo = claim.getLesserBoundaryCorner() != null 
-                ? GriefPrevention.getfriendlyLocationString(claim.getLesserBoundaryCorner()) 
-                : "unknown";
-            GriefPrevention.AddLogEntry("[DEBUG] Deleting " + claimType + " - ID: " + claim.id 
-                + ", Owner: " + ownerInfo 
-                + ", Location: " + locationInfo
-                + ", Children: " + claim.children.size(), CustomLogEntryTypes.Debug, true);
+            String locationInfo = claim.getLesserBoundaryCorner() != null
+                    ? GriefPrevention.getfriendlyLocationString(claim.getLesserBoundaryCorner())
+                    : "unknown";
+            GriefPrevention.AddLogEntry("[DEBUG] Deleting " + claimType + " - ID: " + claim.id
+                    + ", Owner: " + ownerInfo
+                    + ", Location: " + locationInfo
+                    + ", Children: " + claim.children.size(), CustomLogEntryTypes.Debug, true);
         }
 
         // delete any children (iterate over a snapshot to avoid skipping due to parent
@@ -1122,8 +1128,8 @@ public abstract class DataStore {
         int smallx, bigx, smally, bigy, smallz, bigz;
 
         int worldMinY = world.getMinHeight();
-        y1 = Math.max(worldMinY, Math.max(GriefPrevention.instance.config_claims_maxDepth, y1));
-        y2 = Math.max(worldMinY, Math.max(GriefPrevention.instance.config_claims_maxDepth, y2));
+        y1 = Math.max(worldMinY, Math.max(GriefPrevention.instance.config_claims_minY, y1));
+        y2 = Math.max(worldMinY, Math.max(GriefPrevention.instance.config_claims_minY, y2));
 
         // determine small versus big inputs
         if (x1 < x2) {
@@ -1184,7 +1190,8 @@ public abstract class DataStore {
                 }
             }
 
-            // No X/Z inset enforcement for subdivisions - allow them to share parent boundaries
+            // No X/Z inset enforcement for subdivisions - allow them to share parent
+            // boundaries
             // Preserve exact Y boundaries for subclaims (including single-layer 3D).
             // Previously, zero-height subclaims were sanitized to parent's bottom,
             // unintentionally
@@ -1202,17 +1209,16 @@ public abstract class DataStore {
 
         // creative mode claims always go to bedrock
         Claim newClaim = new Claim(
-            smallerBoundaryCorner,
-            greaterBoundaryCorner,
-            ownerID,
-            new ArrayList<>(),
-            new ArrayList<>(),
-            new ArrayList<>(),
-            new ArrayList<>(),
-            false,
-            id,
-            is3D
-        );
+                smallerBoundaryCorner,
+                greaterBoundaryCorner,
+                ownerID,
+                new ArrayList<>(),
+                new ArrayList<>(),
+                new ArrayList<>(),
+                new ArrayList<>(),
+                false,
+                id,
+                is3D);
 
         newClaim.allowPvP = allowPvP;
         newClaim.areExplosivesAllowed = allowExplosives;
@@ -1474,7 +1480,7 @@ public abstract class DataStore {
         // Use the lowest of the old and new depths.
         newDepth = Math.min(newDepth, oldDepth);
         // Cap depth to maximum depth allowed by the configuration.
-        newDepth = Math.max(newDepth, GriefPrevention.instance.config_claims_maxDepth);
+        newDepth = Math.max(newDepth, GriefPrevention.instance.config_claims_minY);
         // Cap the depth to the world's minimum height.
         World world = Objects.requireNonNull(claim.getLesserBoundaryCorner().getWorld());
         newDepth = Math.max(newDepth, world.getMinHeight());
