@@ -175,7 +175,7 @@
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>26.0.2-1</version>
+            <version>26.1.0</version>
             <!-- Annotations are not required at runtime, only during compilation. -->
             <scope>provided</scope>
         </dependency>
